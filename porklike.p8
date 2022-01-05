@@ -7,6 +7,9 @@ function _init()
 	update_func=update_game
 	draw_func=draw_game
 	
+	directions_x={-1,1,0,0}
+	directions_y={0,0,-1,1}
+	
 	frame_time=0
 	player_sprite=240
 		
@@ -17,7 +20,7 @@ function _draw()
 	draw_func()
 end
 
-function _update()
+function _update60()
 	frame_time+=1
 	update_func()
 end
@@ -25,53 +28,52 @@ end
 function startgame()
 	player_x=3
 	player_y=6
-	player_offset_x=0
-	player_offset_y=0
+	player_ox=0
+	player_oy=0
+	player_sox=0
+	player_soy=0
+	player_timer=0
 end
 -->8
 -- updates
 
 function update_game()
-	if btnp(⬅️) then
-		player_x-=1
-		player_offset_x=8
-		update_func=update_player_turn
+	
+	for i=0,3 do
+		if btnp(i) then
+			local dir_x,dir_y=
+				directions_x[i+1],
+				directions_y[i+1]
+			
+			player_timer=0
+			player_x+=dir_x
+			player_y+=dir_y
+			player_sox,player_soy=
+				-dir_x*8,-dir_y*8
+			player_ox,player_oy=
+				player_sox,player_soy
+			
+			update_func=update_player_turn
+			return
+		end
 	end
-	if btnp(➡️) then
-		player_x+=1
-		player_offset_x=-8
-		update_func=update_player_turn
-	end
-	if btnp(⬆️) then
-		player_y-=1
-		player_offset_y=8
-		update_func=update_player_turn
-	end
-	if btnp(⬇️) then
-		player_y+=1
-		player_offset_y=-8
-		update_func=update_player_turn
-	end
+	
 end
 
 function update_player_turn()
-	if player_offset_x>0 then
-		player_offset_x-=1
-	end
-	if player_offset_x<0 then
-		player_offset_x+=1
-	end
-	if player_offset_y>0 then
-		player_offset_y-=1
-	end
-	if player_offset_y<0 then
-		player_offset_y+=1
-	end
+	player_timer=min(
+		player_timer+0.125,
+		1
+	)
 	
-	if
-		player_offset_x==0
-		and player_offset_y==0
-	then
+	player_ox=player_sox*(
+		1-player_timer
+	)
+	player_oy=player_soy*(
+		1-player_timer
+	)
+	
+	if player_timer==1 then
 		update_func=update_game
 	end
 end
@@ -88,8 +90,8 @@ function draw_game()
 	
 	draw_sprite(
 		get_frame(player_sprite,4),
-		player_x*8 + player_offset_x,
-		player_y*8 + player_offset_y,
+		player_x*8 + player_ox,
+		player_y*8 + player_oy,
 		10
 	)
 end
@@ -105,7 +107,7 @@ function get_frame(
 	length
 )
 	return start_point+(
-		flr(frame_time/8)%length
+		flr(frame_time/15)%length
 	)
 end
 
