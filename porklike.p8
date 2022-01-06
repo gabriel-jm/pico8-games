@@ -7,8 +7,12 @@ function _init()
 	update_func=update_game
 	draw_func=draw_game
 	
-	directions_x={-1,1,0,0}
-	directions_y={0,0,-1,1}
+	directions_x={
+		-1,1,0,0,1,1,-1,-1
+	}
+	directions_y={
+		0,0,-1,1,-1,1,1,-1
+	}
 	
 	frame_time=0
 	player_sprite=240
@@ -40,20 +44,23 @@ function startgame()
 	player_timer=0
 	
 	window_list={}
-	
-	add_window(32,64,64,24,{
-		"hello world",
-		"this is line 2"
-	})
+	talk_window=nil
 end
 -->8
 -- updates
 
 function update_game()
-	do_btn_buff()
-	
-	btn_action()
-	btn_buffer=-1
+	if talk_window then
+		if get_btn()==5 then
+			talk_window.duration=0
+			talk_window=nil
+		end
+	else
+		do_btn_buff()
+		
+		btn_action()
+		btn_buffer=-1
+	end
 end
 
 function update_player_turn()
@@ -182,8 +189,8 @@ function draw_rect(
 	rectfill(
 		x,
 		y,
-		x+width-1,
-		y+height-1,
+		x+max(width-1,0),
+		y+max(height-1,0),
 		color_num
 	)
 end
@@ -192,6 +199,24 @@ function for_each(table,cb)
 	for i=1,#table do
 		cb(table[i],i)
 	end
+end
+
+function outline_print(
+	text,
+	x,
+	y,
+	color1,
+	color2
+)
+	for i=1,8 do
+		print(
+			text,
+			x+directions_x[i],
+			y+directions_y[i],
+			color2
+		)
+	end
+	print(text,x,y,color1)
 end
 
 -->8
@@ -254,6 +279,13 @@ function trigger_bump(
 		-- door
 		sfx(62)
 		mset(dest_x,dest_y,1)
+	elseif tile==6 then
+		-- stone tablet
+		show_message({"hello my dear friend","","this is porklike"})
+		--[[add_window(32,64,64,24,{
+			"welcome to the world",
+			"of porklike"
+		})]]
 	end
 end
 
@@ -279,7 +311,7 @@ end
 function draw_windows()
 	for_each(
 		window_list, 
-		function(w)
+		function (w)
 			local w_x,w_y,
 				w_width,w_height=
 					w.x,w.y,w.width,w.height
@@ -304,16 +336,66 @@ function draw_windows()
 				w_width-8,
 				w_height-8
 			)
-	
 			for_each(
 				w.text,
-				function(text)
+				function (text)
 					print(text,w_x,w_y,6)
 					w_y+=6
 				end
 			)
+			clip()
+			
+			if w.duration then
+				w.duration-=1
+				
+				if w.duration<=0 then
+					local diff=w_height/4
+					w.y+=diff/2
+					w.height-=diff
+					
+					if w_height<3 then
+						del(window_list,w)
+					end
+				end
+			else
+				if w.btn then
+					outline_print(
+						"❎",
+						w_x+w_width-15,
+						w_y-0.9+sin(time()),
+						6,
+						0
+					)
+				end
+			end
 		end
 	)
+end
+
+function show_message(
+	text,
+	duration
+)
+	local width=(#text+2)*4+7
+	local window=add_window(
+		63-width/2, --x
+		50, --y
+		width,
+		13, -- height
+		{" "..text}
+	)
+	window.duration=duration
+end
+
+function show_message(text)
+	talk_window=add_window(
+		16, -- x
+		50, -- y
+		94, -- width
+		#text*6+7, --height
+		text
+	)
+	talk_window.btn=true
 end
 
 __gfx__
