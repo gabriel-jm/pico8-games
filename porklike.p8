@@ -7,11 +7,12 @@ function _init()
 	update_func=update_game
 	draw_func=draw_game
 	
-	directions_x=split[[
+	-- directions in x and y
+	directs_x=split[[
 		-1,1,0,0,
 		1,1,-1,-1
 	]]
-	directions_y=split[[
+	directs_y=split[[
 		0,0,-1,1,
 		-1,1,1,-1
 	]]
@@ -86,6 +87,32 @@ function update_player_turn()
 	
 	if plyr_timer==1 then
 		update_func=update_game
+		do_ai()
+	end
+end
+
+function update_ai_turn()
+	do_btn_buff()
+
+	plyr_timer=min(
+		plyr_timer+0.125,
+		1
+	)
+	
+	plyr:animation(plyr_timer)
+	
+	for_each(mob_list,
+		function(mob)
+			if mob!=plyr then
+				if mob.animation then
+					mob:animation(plyr_timer)
+				end
+			end
+		end
+	)
+	
+	if plyr_timer==1 then
+		update_func=update_game
 	end
 end
 
@@ -113,8 +140,8 @@ function btn_action()
 	
 	if btn_buffer<4 then
 		move_player(
-			directions_x[btn_buffer+1],
-			directions_y[btn_buffer+1]
+			directs_x[btn_buffer+1],
+			directs_y[btn_buffer+1]
 		)
 	end
 	
@@ -173,23 +200,24 @@ function get_frame(start_point)
 end
 
 function draw_sprite(
-	sprite_num,
+	sprite,
 	x_position,
 	y_position,
-	color_num,
-	is_flipped
+	colr,
+	flipped
 )
 	--makes black not transparent
 	palt(0,false)
 	
 	--turn gray to another color
-	pal(6,color_num)
+	pal(6,colr)
 	spr(
-		sprite_num,
+		sprite,
 		x_position,
 		y_position,
-		1,1,
-		is_flipped
+		1,
+		1,
+		flipped
 	)
 	pal()
 end
@@ -199,44 +227,53 @@ function draw_rect(
 	y,
 	width,
 	height,
-	color_num
+	colr
 )
 	rectfill(
 		x,
 		y,
 		x+max(width-1,0),
 		y+max(height-1,0),
-		color_num
+		colr
 	)
 end
 
 function for_each(
 	table,
-	callback
+	cb --callback
 )
 	for item in all(table) do
-		callback(item)	
+		cb(item)	
 	end
 end
 
 function outline_print(
-	text,
+	txt,
 	x,
 	y,
-	color1,
-	color2
+	colr1,
+	colr2
 )
 	for i=1,8 do
 		print(
-			text,
-			x+directions_x[i],
-			y+directions_y[i],
-			color2
+			txt,
+			x+directs_x[i],
+			y+directs_y[i],
+			colr2
 		)
 	end
-	print(text,x,y,color1)
+	print(txt,x,y,colr1)
 end
 
+function dist(
+	f_x, -- from in x
+	f_y, -- from in y
+	t_x, -- to in x
+	t_y  -- to in y
+)
+	local dx,dy=f_x-t_x,f_y-t_y
+	return sqrt(dx*dx+dy*dy)
+end
 -->8
 -- gameplay
 
@@ -587,7 +624,33 @@ function bump_animation(
 	self.oy=self.soy*timer
 end
 
-
+function do_ai()
+	for_each(
+		mob_list,
+		function (m)
+			if m!=plyr then
+				local best_dst,b_x,b_y=0,0,0
+				for i=1,4 do
+					local dx,dy=directs_x[i],
+						directs_y[i]
+					local dst=dist(
+						m.x+dx,
+						m.y+dy,
+						plyr.x,
+						plyr.y
+					)
+					if dst<best_dst then
+						best_dst,b_x,b_y=dst,dx,dy
+					end
+				end
+				
+				mob_walk(m,b_x,b_y)
+				update_func=update_ai_turn
+				plyr_timer=0
+			end
+		end
+	)
+end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
 000000000000000000000000000000000000000000000000aaaaaaaa0a000a000a000a00066666600aaaaaa066666660a0aaa0a000000000a0aa000000000000
