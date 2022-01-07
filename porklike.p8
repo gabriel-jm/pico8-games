@@ -7,16 +7,19 @@ function _init()
 	update_func=update_game
 	draw_func=draw_game
 	
-	directions_x=split[[
+	-- directions in x and y
+	directs_x=split[[
 		-1,1,0,0,
 		1,1,-1,-1
 	]]
-	directions_y=split[[
+	directs_y=split[[
 		0,0,-1,1,
 		-1,1,1,-1
 	]]
 	
 	mob_sprites=split"240,192"
+	mob_atk=split"1,1"
+	mob_hp=split"5,2"
 	
 	frame_time=0
 	--player_sprite=240
@@ -32,6 +35,7 @@ end
 function _update60()
 	frame_time+=1
 	update_func()
+	anim_floaters()
 end
 
 function startgame()
@@ -45,9 +49,14 @@ function startgame()
 	plyr_timer=0
 	
 	add_mob(2,2,5)
+	add_mob(2,6,8)
+	add_mob(2,7,12)
 	
 	window_list={}
 	talk_window=nil
+	
+	-- list of floating text
+	floaters={}
 end
 -->8
 -- updates
@@ -78,32 +87,37 @@ function update_player_turn()
 	
 	if plyr_timer==1 then
 		update_func=update_game
+		do_ai()
+	end
+end
+
+function update_ai_turn()
+	do_btn_buff()
+
+	plyr_timer=min(
+		plyr_timer+0.125,
+		1
+	)
+	
+	plyr:animation(plyr_timer)
+	
+	for_each(mob_list,
+		function(mob)
+			if mob!=plyr then
+				if mob.animation then
+					mob:animation(plyr_timer)
+				end
+			end
+		end
+	)
+	
+	if plyr_timer==1 then
+		update_func=update_game
 	end
 end
 
 function update_gameover()
 
-end
-
-function walk_animation(
-	self,
-	anim_timer
-)
-	local timer=1-anim_timer
-	self.ox=self.sox*timer
-	self.oy=self.soy*timer
-end
-
-function bump_animation(
-	self,
-	anim_timer
-)
-	local timer=anim_timer>0.5
-		and 1-anim_timer
-		or anim_timer
-	
-	self.ox=self.sox*timer
-	self.oy=self.soy*timer
 end
 
 function do_btn_buff()
@@ -126,8 +140,8 @@ function btn_action()
 	
 	if btn_buffer<4 then
 		move_player(
-			directions_x[btn_buffer+1],
-			directions_y[btn_buffer+1]
+			directs_x[btn_buffer+1],
+			directs_y[btn_buffer+1]
 		)
 	end
 	
@@ -141,22 +155,33 @@ function draw_game()
 	cls(0)
 	map()
 	
-	--[[draw_sprite(
-		get_frame(player_sprite,4),
-		player_x*8 + player_ox,
-		player_y*8 + player_oy,
-		10,
-		player_is_flipped
-	)]]
-	for_each(
-		mob_list,
+	for_each(mob_list,
 		function (mob)
+			local colr=10
+		
+			if mob.flash>0 then
+				mob.flash-=1
+				colr=7
+			end
+		
 			draw_sprite(
 				get_frame(mob.sprite),
 				mob.x*8+mob.ox,
 				mob.y*8+mob.oy,
-				10,
+				colr,
 				mob.is_flipped
+			)
+		end
+	)
+	
+	for_each(floaters,
+		function (flt)
+			outline_print(
+				flt.text,
+				flt.x,
+				flt.y,
+				flt.color_num,
+				0
 			)
 		end
 	)
@@ -175,23 +200,24 @@ function get_frame(start_point)
 end
 
 function draw_sprite(
-	sprite_num,
+	sprite,
 	x_position,
 	y_position,
-	color_num,
-	is_flipped
+	colr,
+	flipped
 )
 	--makes black not transparent
 	palt(0,false)
 	
 	--turn gray to another color
-	pal(6,color_num)
+	pal(6,colr)
 	spr(
-		sprite_num,
+		sprite,
 		x_position,
 		y_position,
-		1,1,
-		is_flipped
+		1,
+		1,
+		flipped
 	)
 	pal()
 end
@@ -201,44 +227,53 @@ function draw_rect(
 	y,
 	width,
 	height,
-	color_num
+	colr
 )
 	rectfill(
 		x,
 		y,
 		x+max(width-1,0),
 		y+max(height-1,0),
-		color_num
+		colr
 	)
 end
 
 function for_each(
 	table,
-	call_back
+	cb --callback
 )
-	for i=1,#table do
-		call_back(table[i],i)
+	for item in all(table) do
+		cb(item)	
 	end
 end
 
 function outline_print(
-	text,
+	txt,
 	x,
 	y,
-	color1,
-	color2
+	colr1,
+	colr2
 )
 	for i=1,8 do
 		print(
-			text,
-			x+directions_x[i],
-			y+directions_y[i],
-			color2
+			txt,
+			x+directs_x[i],
+			y+directs_y[i],
+			colr2
 		)
 	end
-	print(text,x,y,color1)
+	print(txt,x,y,colr1)
 end
 
+function dist(
+	f_x, -- from in x
+	f_y, -- from in y
+	t_x, -- to in x
+	t_y  -- to in y
+)
+	local dx,dy=f_x-t_x,f_y-t_y
+	return sqrt(dx*dx+dy*dy)
+end
 -->8
 -- gameplay
 
@@ -247,36 +282,33 @@ function move_player(dx,dy)
 		plyr.y+dy
 	local tile=mget(dest_x,dest_y)
 	
-	if dx<0 then
-		plyr.is_flipped=true
-	elseif dx>0 then
-		plyr.is_flipped=false
-	end
-	
 	if
-		is_walkable(tile,dest_x,dest_y)
+		is_walkable(
+			tile,
+			dest_x,
+			dest_y,
+			"checkmobs"
+		)
 	then
 		sfx(63)
-		plyr.x+=dx
-		plyr.y+=dy
-				
-		plyr.sox,plyr.soy=-dx*8,-dy*8
-		plyr.ox,plyr.oy=plyr.sox,
-			plyr.soy
-		
-		plyr.animation=walk_animation
+		mob_walk(plyr,dx,dy)
 	else
-		-- wall
-		plyr.sox,plyr.soy=dx*8,dy*8
-		plyr.ox,plyr.oy=0,0
-					
-		plyr.animation=bump_animation
-		if fget(tile,1) then
-			trigger_bump(
-				tile,
-				dest_x,
-				dest_y
-			)
+		-- not walkable
+		mob_bump(plyr,dx,dy)
+		
+		local mob=get_mob(dest_x,dest_y)
+		
+		if not mob then
+			if fget(tile,1) then
+				trigger_bump(
+					tile,
+					dest_x,
+					dest_y
+				)
+			end
+		else
+			sfx(58)
+			hit_mob(plyr,mob)
 		end
 	end
 	
@@ -319,9 +351,24 @@ function get_mob(x,y)
 	end
 end
 
-function is_walkable(tile,x,y)
+function is_walkable(
+	tile,
+	x,
+	y,
+	mode
+)
+	mode=mode or ""
 	if in_bounds(x,y) then
-		return not fget(tile,0)
+		local no_wall=not fget(tile,0)
+		
+		if
+			no_wall
+			and mode=="checkmobs"
+		then
+			return not get_mob(x,y)
+		end
+		
+		return no_wall
 	end
 end
 
@@ -331,6 +378,27 @@ function in_bounds(x,y)
 		or x>15
 		or y>15
 	)
+end
+
+function hit_mob(
+	attacker,
+	target
+)
+	local dmg=attacker.atk
+	
+	target.hp-=dmg
+	target.flash=10
+	
+	add_floater(
+		"-"..dmg,
+		target.x*8,
+		target.y*8,
+		9
+	)
+	
+	if target.hp<=0 then
+		del(mob_list,target)
+	end	
 end
 
 -->8
@@ -353,8 +421,7 @@ function add_window(
 end
 
 function draw_windows()
-	for_each(
-		window_list,
+	for_each(window_list,
 		function (w)
 			local w_x,w_y,
 				w_width,w_height=
@@ -384,8 +451,7 @@ function draw_windows()
 				w_width-8,
 				w_height-8
 			)
-			for_each(
-				w.text,
+			for_each(w.text,
 				function (text)
 					print(text,w_x,w_y,6)
 					w_y+=6
@@ -446,6 +512,34 @@ function show_message(text)
 	talk_window.btn=true
 end
 
+function add_floater(
+	text,
+	x,
+	y,
+	color_num
+)
+	add(floaters,{
+		text=text,
+		x=x,
+		y=y,
+		color_num=color_num,
+		target_y=y-10,
+		timer=0
+	})
+end
+
+function anim_floaters()
+	for_each(floaters,
+		function (flt)
+			flt.y+=(flt.target_y-flt.y)/10
+			flt.timer+=1
+			if flt.timer>70 then
+				del(floaters,flt)
+			end
+		end
+	)
+end
+
 -->8
 -- monsters
 
@@ -462,11 +556,101 @@ function add_mob(
 		sox=0,
 		soy=0,
 		sprite=mob_sprites[typ],
+		flash=0,
 		is_flipped=false,
-		animation=nil
+		animation=nil,
+		hp=mob_hp[typ],
+		max_hp=mob_hp[typ],
+		atk=mob_atk[typ]
 	})
 end
 
+function mob_walk(
+	mob,
+	dest_x,
+	dest_y
+)
+	mob.x+=dest_x
+	mob.y+=dest_y
+			
+	mob_flip(mob,dest_x)
+	mob.sox,mob.soy=-dest_x*8,
+		-dest_y*8
+	mob.ox,mob.oy=mob.sox,mob.soy
+	
+	mob.animation=walk_animation
+end
+
+function mob_bump(
+	mob,
+	dest_x,
+	dest_y
+)
+	mob_flip(mob,dest_x)
+	mob.sox,mob.soy=dest_x*8,
+		dest_y*8
+	mob.ox,mob.oy=0,0
+					
+	mob.animation=bump_animation
+end
+
+function mob_flip(mob,dest_x)
+	if dest_x<0 then
+		mob.is_flipped=true
+	elseif dest_x>0 then
+		mob.is_flipped=false
+	end
+end
+
+
+function walk_animation(
+	self,
+	anim_timer
+)
+	local timer=1-anim_timer
+	self.ox=self.sox*timer
+	self.oy=self.soy*timer
+end
+
+function bump_animation(
+	self,
+	anim_timer
+)
+	local timer=anim_timer>0.5
+		and 1-anim_timer
+		or anim_timer
+	
+	self.ox=self.sox*timer
+	self.oy=self.soy*timer
+end
+
+function do_ai()
+	for_each(
+		mob_list,
+		function (m)
+			if m!=plyr then
+				local best_dst,b_x,b_y=0,0,0
+				for i=1,4 do
+					local dx,dy=directs_x[i],
+						directs_y[i]
+					local dst=dist(
+						m.x+dx,
+						m.y+dy,
+						plyr.x,
+						plyr.y
+					)
+					if dst<best_dst then
+						best_dst,b_x,b_y=dst,dx,dy
+					end
+				end
+				
+				mob_walk(m,b_x,b_y)
+				update_func=update_ai_turn
+				plyr_timer=0
+			end
+		end
+	)
+end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
 000000000000000000000000000000000000000000000000aaaaaaaa0a000a000a000a00066666600aaaaaa066666660a0aaa0a000000000a0aa000000000000
@@ -674,8 +858,8 @@ __sfx__
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00010000211102114015140271300f6300f6101c610196001761016600156100f6000c61009600076000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100001b61006540065401963018630116100e6100c610096100861000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000100001f5302b5302e5302e5303250032500395002751027510285102a510005000050000500275102951029510005000050000500005002451024510245102751029510005000050000500005000050000500
 0001000024030240301c0301c0302a2302823025210212101e2101b2101b21016210112100d2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100a2100020000200
 0001000024030240301c0301c03039010390103a0103001030010300102d010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
