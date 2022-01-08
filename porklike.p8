@@ -4,25 +4,20 @@ __lua__
 -- initialization
 
 function _init()
-	update_func=update_game
-	draw_func=draw_game
-	
 	-- directions in x and y
-	directs_x=split[[
-		-1,1,0,0,
-		1,1,-1,-1
-	]]
-	directs_y=split[[
-		0,0,-1,1,
-		-1,1,1,-1
+	dirs_x=split"-1,1,0,0,1,1,-1,-1"
+	dirs_y=split"0,0,-1,1,-1,1,1,-1"
+	
+	dpal=split[[
+		0,1,1,2,1,13,6,4,
+		4,9,3,13,1,13,14
 	]]
 	
-	mob_sprites=split"240,192"
+	mob_sprs=split"240,192"
 	mob_atk=split"1,1"
 	mob_hp=split"5,2"
 	
 	frame_time=0
-	--player_sprite=240
 		
 	startgame()
 end
@@ -30,6 +25,8 @@ end
 function _draw()
 	draw_func()
 	draw_windows()
+	upd_hp_box()
+	check_fade()
 end
 
 function _update60()
@@ -39,10 +36,13 @@ function _update60()
 end
 
 function startgame()
+	fade_perc=1
+	
 	btn_buffer=-1
 	
-	-- monsters list
+	-- monsters lists
 	mob_list={}
+	dead_mobs={}
 
 	-- player
 	plyr=add_mob(1,1,1)
@@ -54,9 +54,15 @@ function startgame()
 	
 	window_list={}
 	talk_window=nil
+	hp_box=add_window(
+		5,5,28,13,{"♥5/5"}
+	)
 	
 	-- list of floating text
 	floaters={}
+	
+	update_func=update_game
+	draw_func=draw_game
 end
 -->8
 -- updates
@@ -87,7 +93,8 @@ function update_player_turn()
 	
 	if plyr_timer==1 then
 		update_func=update_game
-		do_ai()
+		
+		if (check_end()) do_ai()
 	end
 end
 
@@ -99,25 +106,28 @@ function update_ai_turn()
 		1
 	)
 	
-	plyr:animation(plyr_timer)
-	
 	for_each(mob_list,
 		function(mob)
-			if mob!=plyr then
-				if mob.animation then
-					mob:animation(plyr_timer)
-				end
-			end
+			if
+				mob==plyr
+				or not mob.animation
+			then return end
+				
+			mob:animation(plyr_timer)	
 		end
 	)
 	
 	if plyr_timer==1 then
 		update_func=update_game
+		check_end()
 	end
 end
 
 function update_gameover()
-
+	if btnp(❎) then
+		fadeout()
+		startgame()
+	end
 end
 
 function do_btn_buff()
@@ -140,8 +150,8 @@ function btn_action()
 	
 	if btn_buffer<4 then
 		move_player(
-			directs_x[btn_buffer+1],
-			directs_y[btn_buffer+1]
+			dirs_x[btn_buffer+1],
+			dirs_y[btn_buffer+1]
 		)
 	end
 	
@@ -155,24 +165,26 @@ function draw_game()
 	cls(0)
 	map()
 	
-	for_each(mob_list,
+	for_each(dead_mobs,
 		function (mob)
-			local colr=10
-		
-			if mob.flash>0 then
-				mob.flash-=1
-				colr=7
+			if sin(time()*8)>0 then
+				draw_mob(mob)
 			end
-		
-			draw_sprite(
-				get_frame(mob.sprite),
-				mob.x*8+mob.ox,
-				mob.y*8+mob.oy,
-				colr,
-				mob.is_flipped
-			)
+			
+			mob.dur-=1
+			
+			if mob.dur<=0 then
+				del(dead_mobs,mob)
+			end
 		end
 	)
+	
+	for_each(mob_list,function (m)
+		if (m==plyr) return	
+		draw_mob(m)
+	end)
+	
+	draw_mob(plyr)
 	
 	for_each(floaters,
 		function (flt)
@@ -188,91 +200,118 @@ function draw_game()
 end
 
 function draw_gameover()
+	cls(2)
+	print("u ded",50,50,7)
+end
 
+function draw_mob(mob)
+	local colr=10
+		
+	if mob.flash>0 then
+		mob.flash-=1
+		colr=7
+	end
+
+	draw_sprite(
+		get_frame(mob.sprt),
+		mob.x*8+mob.ox,
+		mob.y*8+mob.oy,
+		colr,
+		mob.is_flipped
+	)
 end
 -->8
 -- tools
 
-function get_frame(start_point)
-	return start_point+(
+function get_frame(start)
+	return start+(
 		flr(frame_time/15)%4
 	)
 end
 
 function draw_sprite(
-	sprite,
-	x_position,
-	y_position,
-	colr,
-	flipped
+	sprt,x,y,clr,flipped
 )
 	--makes black not transparent
 	palt(0,false)
 	
 	--turn gray to another color
-	pal(6,colr)
-	spr(
-		sprite,
-		x_position,
-		y_position,
-		1,
-		1,
-		flipped
-	)
+	pal(6,clr)
+	spr(sprt,x,y,1,1,flipped)
 	pal()
 end
 
-function draw_rect(
-	x,
-	y,
-	width,
-	height,
-	colr
-)
+function draw_rect(x,y,w,h,c)
 	rectfill(
-		x,
-		y,
-		x+max(width-1,0),
-		y+max(height-1,0),
-		colr
+		x,y,
+		x+max(w-1,0),
+		y+max(h-1,0),
+		c
 	)
 end
 
-function for_each(
-	table,
-	cb --callback
-)
+function for_each(table,cb)
 	for item in all(table) do
 		cb(item)	
 	end
 end
 
 function outline_print(
-	txt,
-	x,
-	y,
-	colr1,
-	colr2
+	txt,x,y,clr1,clr2
 )
 	for i=1,8 do
 		print(
 			txt,
-			x+directs_x[i],
-			y+directs_y[i],
-			colr2
+			x+dirs_x[i],
+			y+dirs_y[i],
+			clr2
 		)
 	end
-	print(txt,x,y,colr1)
+	print(txt,x,y,clr1)
 end
 
-function dist(
-	f_x, -- from in x
-	f_y, -- from in y
-	t_x, -- to in x
-	t_y  -- to in y
-)
+function dist(f_x,f_y,t_x,t_y)
 	local dx,dy=f_x-t_x,f_y-t_y
 	return sqrt(dx*dx+dy*dy)
+end
+
+function fade()
+	local p,kmax,col,k=flr(
+		mid(0,fade_perc,1)*100
+	)
+	for j=1,15 do
+		col=j
+		kmax=flr((p+(j*1.46))/22)
+		for k=1,kmax do
+			col=dpal[col]
+		end
+		pal(j,col,1)
+	end
+end
+
+function check_fade()
+	if fade_perc>0 then
+		fade_perc=max(fade_perc-0.04,0)
+		fade()
+	end
+end
+
+function wait(t)
+	repeat
+		t-=1
+		flip()
+	until t<0
+end
+
+function fadeout(spd,t)
+	spd=spd or 0.04
+	t=t or 0
+	repeat
+		fade_perc=min(fade_perc+spd,1)
+		fade()
+		flip()
+	until fade_perc==1
+	wait(t)
 end
 -->8
 -- gameplay
@@ -284,7 +323,6 @@ function move_player(dx,dy)
 	
 	if
 		is_walkable(
-			tile,
 			dest_x,
 			dest_y,
 			"checkmobs"
@@ -295,6 +333,9 @@ function move_player(dx,dy)
 	else
 		-- not walkable
 		mob_bump(plyr,dx,dy)
+		
+--		plyr_timer=0
+--		update_func=update_player_turn
 		
 		local mob=get_mob(dest_x,dest_y)
 		
@@ -344,21 +385,21 @@ function trigger_bump(
 end
 
 function get_mob(x,y)
-	for mob in all(mob_list) do
-		if mob.x==x and mob.y==y then
-			return mob
-		end
-	end
+	for m in all(mob_list) do
+  if m.x==x and m.y==y then
+   return m
+  end
+ end
 end
 
 function is_walkable(
-	tile,
 	x,
 	y,
 	mode
 )
 	mode=mode or ""
 	if in_bounds(x,y) then
+		local tile=mget(x,y)
 		local no_wall=not fget(tile,0)
 		
 		if
@@ -397,10 +438,20 @@ function hit_mob(
 	)
 	
 	if target.hp<=0 then
+		target.dur=13
+		add(dead_mobs,target)
 		del(mob_list,target)
 	end	
 end
 
+function check_end()
+	if (plyr.hp>0) return true
+
+	window_list={}	
+	update_func=update_gameover
+	draw_func=draw_gameover
+	fadeout(0.02)
+end
 -->8
 -- ui
 
@@ -409,14 +460,14 @@ function add_window(
 	y,
 	width,
 	height,
-	text
+	txt
 )
 	return add(window_list,{
 		x=x,
 		y=y,
 		width=width,
 		height=height,
-		text=text
+		text=txt
 	})
 end
 
@@ -486,28 +537,25 @@ function draw_windows()
 	)
 end
 
-function show_message(
-	text,
-	duration
-)
-	local width=(#text+2)*4+7
+function show_message(txt,dur)
+	local width=(#txt+2)*4+7
 	local window=add_window(
-		63-width/2, --x
-		50, --y
+		63-width/2,
+		50,
 		width,
-		13, -- height
-		{" "..text}
+		13,
+		{" "..txt}
 	)
-	window.duration=duration
+	window.duration=dur
 end
 
-function show_message(text)
+function show_message(txt)
 	talk_window=add_window(
-		16, -- x
-		50, -- y
-		94, -- width
-		#text*6+7, --height
-		text
+		16,
+		50,
+		94,
+		#txt*6+7,
+		txt
 	)
 	talk_window.btn=true
 end
@@ -540,6 +588,15 @@ function anim_floaters()
 	)
 end
 
+function upd_hp_box()
+	hp_box.text[1]=
+		"♥"..plyr.hp.."/"..plyr.max_hp
+	local y=5
+	if plyr.y<8 then
+		y=110
+	end
+	hp_box.y+=(y-hp_box.y)/5
+end
 -->8
 -- monsters
 
@@ -555,7 +612,7 @@ function add_mob(
 		oy=0,
 		sox=0,
 		soy=0,
-		sprite=mob_sprites[typ],
+		sprt=mob_sprs[typ],
 		flash=0,
 		is_flipped=false,
 		animation=nil,
@@ -628,19 +685,48 @@ function do_ai()
 	for_each(
 		mob_list,
 		function (m)
-			if m!=plyr then
-				local best_dst,b_x,b_y=0,0,0
+			if (m==plyr) return
+			
+			m.animation=nil
+			
+			if
+				dist(
+					m.x,
+					m.y,
+					plyr.x,
+					plyr.y
+				)==1
+			then
+				-- attack player
+				local dx,dy=plyr.x-m.x,
+					plyr.y-m.y
+					
+				mob_bump(m,dx,dy)
+				hit_mob(m,plyr)
+				sfx(57)
+			else
+				-- move to player
+				local best_dst,b_x,b_y=99,0,0
 				for i=1,4 do
-					local dx,dy=directs_x[i],
-						directs_y[i]
-					local dst=dist(
-						m.x+dx,
-						m.y+dy,
-						plyr.x,
-						plyr.y
-					)
-					if dst<best_dst then
-						best_dst,b_x,b_y=dst,dx,dy
+					local dx,dy=dirs_x[i],dirs_y[i]
+					local trgt_x,trgt_y=m.x+dx,
+						m.y+dy
+				
+					if is_walkable(
+						trgt_x,
+						trgt_y,
+						"checkmobs"
+					) then
+						local dst=dist(
+							trgt_x,
+							trgt_y,
+							plyr.x,
+							plyr.y
+						)
+						
+						if dst<best_dst then
+							best_dst,b_x,b_y=dst,dx,dy
+						end
 					end
 				end
 				
