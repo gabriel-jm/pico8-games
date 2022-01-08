@@ -4,7 +4,7 @@ __lua__
 -- initialization
 
 function _init()
-	-- directions in x and y
+	-- directions
 	dirs_x=split"-1,1,0,0,1,1,-1,-1"
 	dirs_y=split"0,0,-1,1,-1,1,1,-1"
 	
@@ -17,31 +17,31 @@ function _init()
 	mob_atk=split"1,1"
 	mob_hp=split"5,2"
 	
-	frame_time=0
+	frames=0
 		
 	startgame()
 end
 
 function _draw()
-	draw_func()
+	_drw()
 	draw_windows()
 	upd_hp_box()
 	check_fade()
 end
 
 function _update60()
-	frame_time+=1
-	update_func()
+	frames+=1
+	_upd()
 	anim_floaters()
 end
 
 function startgame()
-	fade_perc=1
+	fadeperc=1
 	
 	btn_buffer=-1
 	
 	-- monsters lists
-	mob_list={}
+	mobs={}
 	dead_mobs={}
 
 	-- player
@@ -61,8 +61,8 @@ function startgame()
 	-- list of floating text
 	floaters={}
 	
-	update_func=update_game
-	draw_func=draw_game
+	_upd=update_game
+	_drw=draw_game
 end
 -->8
 -- updates
@@ -89,10 +89,10 @@ function update_player_turn()
 		1
 	)
 	
-	plyr:animation(plyr_timer)
+	plyr:anim(plyr_timer)
 	
 	if plyr_timer==1 then
-		update_func=update_game
+		_upd=update_game
 		
 		if (check_end()) do_ai()
 	end
@@ -106,19 +106,19 @@ function update_ai_turn()
 		1
 	)
 	
-	for_each(mob_list,
+	for_each(mobs,
 		function(mob)
 			if
 				mob==plyr
-				or not mob.animation
+				or not mob.anim
 			then return end
 				
-			mob:animation(plyr_timer)	
+			mob:anim(plyr_timer)	
 		end
 	)
 	
 	if plyr_timer==1 then
-		update_func=update_game
+		_upd=update_game
 		check_end()
 	end
 end
@@ -157,7 +157,6 @@ function btn_action()
 	
 	-- menu button
 end
-
 -->8
 -- draws
 
@@ -166,20 +165,20 @@ function draw_game()
 	map()
 	
 	for_each(dead_mobs,
-		function (mob)
+		function (m)
 			if sin(time()*8)>0 then
-				draw_mob(mob)
+				draw_mob(m)
 			end
 			
-			mob.dur-=1
+			m.dur-=1
 			
-			if mob.dur<=0 then
-				del(dead_mobs,mob)
+			if m.dur<=0 then
+				del(dead_mobs,m)
 			end
 		end
 	)
 	
-	for_each(mob_list,function (m)
+	for_each(mobs,function (m)
 		if (m==plyr) return	
 		draw_mob(m)
 	end)
@@ -187,13 +186,9 @@ function draw_game()
 	draw_mob(plyr)
 	
 	for_each(floaters,
-		function (flt)
+		function (fl)
 			outline_print(
-				flt.text,
-				flt.x,
-				flt.y,
-				flt.color_num,
-				0
+				fl.txt,fl.x,fl.y,fl.clr,0
 			)
 		end
 	)
@@ -205,28 +200,25 @@ function draw_gameover()
 end
 
 function draw_mob(mob)
-	local colr=10
+	local clr=10
 		
 	if mob.flash>0 then
 		mob.flash-=1
-		colr=7
+		clr=7
 	end
 
 	draw_sprite(
 		get_frame(mob.sprt),
 		mob.x*8+mob.ox,
 		mob.y*8+mob.oy,
-		colr,
-		mob.is_flipped
+		clr,mob.flipped
 	)
 end
 -->8
 -- tools
 
 function get_frame(start)
-	return start+(
-		flr(frame_time/15)%4
-	)
+	return start+(flr(frames/15)%4)
 end
 
 function draw_sprite(
@@ -277,7 +269,7 @@ end
 
 function fade()
 	local p,kmax,col,k=flr(
-		mid(0,fade_perc,1)*100
+		mid(0,fadeperc,1)*100
 	)
 	for j=1,15 do
 		col=j
@@ -290,8 +282,8 @@ function fade()
 end
 
 function check_fade()
-	if fade_perc>0 then
-		fade_perc=max(fade_perc-0.04,0)
+	if fadeperc>0 then
+		fadeperc=max(fadeperc-0.04,0)
 		fade()
 	end
 end
@@ -307,10 +299,10 @@ function fadeout(spd,t)
 	spd=spd or 0.04
 	t=t or 0
 	repeat
-		fade_perc=min(fade_perc+spd,1)
+		fadeperc=min(fadeperc+spd,1)
 		fade()
 		flip()
-	until fade_perc==1
+	until fadeperc==1
 	wait(t)
 end
 -->8
@@ -323,9 +315,7 @@ function move_player(dx,dy)
 	
 	if
 		is_walkable(
-			dest_x,
-			dest_y,
-			"checkmobs"
+			dest_x,dest_y,"checkmobs"
 		)
 	then
 		sfx(63)
@@ -334,17 +324,12 @@ function move_player(dx,dy)
 		-- not walkable
 		mob_bump(plyr,dx,dy)
 		
---		plyr_timer=0
---		update_func=update_player_turn
-		
 		local mob=get_mob(dest_x,dest_y)
 		
 		if not mob then
 			if fget(tile,1) then
 				trigger_bump(
-					tile,
-					dest_x,
-					dest_y
+					tile,dest_x,dest_y
 				)
 			end
 		else
@@ -354,29 +339,27 @@ function move_player(dx,dy)
 	end
 	
 	plyr_timer=0
-	update_func=update_player_turn
+	_upd=update_player_turn
 end
 
 function trigger_bump(
-	tile,
-	dest_x,
-	dest_y
+	tile,d_x,d_y
 )
 	if tile==7 or tile==8 then
 		-- vase
 		sfx(59)
-		mset(dest_x,dest_y,1)
+		mset(d_x,d_y,1)
 	elseif tile==10 or tile==12 then
 		-- chest
 		sfx(61)
-		mset(dest_x,dest_y,tile-1)
+		mset(d_x,d_y,tile-1)
 	elseif tile==13 then
 		-- door
 		sfx(62)
-		mset(dest_x,dest_y,1)
+		mset(d_x,d_y,1)
 	elseif tile==6 then
 		-- stone tablet
-		show_message({
+		show_msg({
 			"hello my dear friend",
 			"",
 			"this is porklike"
@@ -385,18 +368,14 @@ function trigger_bump(
 end
 
 function get_mob(x,y)
-	for m in all(mob_list) do
+	for m in all(mobs) do
   if m.x==x and m.y==y then
    return m
   end
  end
 end
 
-function is_walkable(
-	x,
-	y,
-	mode
-)
+function is_walkable(x,y,mode)
 	mode=mode or ""
 	if in_bounds(x,y) then
 		local tile=mget(x,y)
@@ -414,33 +393,25 @@ function is_walkable(
 end
 
 function in_bounds(x,y)
-	return not (x<0
-		or y<0
-		or x>15
-		or y>15
+	return not (x<0 or y<0
+		or x>15 or y>15
 	)
 end
 
-function hit_mob(
-	attacker,
-	target
-)
-	local dmg=attacker.atk
+function hit_mob(atk_m,trgt)
+	local dmg=atk_m.atk
 	
-	target.hp-=dmg
-	target.flash=10
+	trgt.hp-=dmg
+	trgt.flash=10
 	
 	add_floater(
-		"-"..dmg,
-		target.x*8,
-		target.y*8,
-		9
+		"-"..dmg,trgt.x*8,trgt.y*8,9
 	)
 	
-	if target.hp<=0 then
-		target.dur=13
-		add(dead_mobs,target)
-		del(mob_list,target)
+	if trgt.hp<=0 then
+		trgt.dur=13
+		add(dead_mobs,trgt)
+		del(mobs,trgt)
 	end	
 end
 
@@ -448,19 +419,15 @@ function check_end()
 	if (plyr.hp>0) return true
 
 	window_list={}	
-	update_func=update_gameover
-	draw_func=draw_gameover
+	_upd=update_gameover
+	_drw=draw_gameover
 	fadeout(0.02)
 end
 -->8
 -- ui
 
 function add_window(
-	x,
-	y,
-	width,
-	height,
-	txt
+	x,y,width,height,txt
 )
 	return add(window_list,{
 		x=x,
@@ -474,62 +441,49 @@ end
 function draw_windows()
 	for_each(window_list,
 		function (w)
-			local w_x,w_y,
-				w_width,w_height=
-					w.x,w.y,w.width,w.height
+			local w_x,w_y,w_w,w_h=
+				w.x,w.y,w.width,w.height
 			
 			draw_rect(
-				w_x,
-				w_y,
-				w_width,
-				w_height,
-				0
+				w_x,w_y,w_w,w_h,0
 			)
 			rect(
-				w_x+1,
-				w_y+1,
-				w_x+w_width-2,
-				w_y+w_height-2,
+				w_x+1,w_y+1,
+				w_x+w_w-2,
+				w_y+w_h-2,
 				6
 			)
 			
 			w_x+=4
 			w_y+=4
 			
-			clip(
-				w_x,
-				w_y,
-				w_width-8,
-				w_height-8
-			)
+			clip(w_x,w_y,w_w-8,w_h-8)
 			for_each(w.text,
-				function (text)
-					print(text,w_x,w_y,6)
+				function (txt)
+					print(txt,w_x,w_y,6)
 					w_y+=6
 				end
 			)
 			clip()
 			
-			if w.duration then
-				w.duration-=1
+			if w.dur then
+				w.dur-=1
 				
-				if w.duration<=0 then
-					local diff=w_height/4
+				if w.dur<=0 then
+					local diff=w_h/4
 					w.y+=diff/2
 					w.height-=diff
 					
-					if w_height<3 then
+					if w_h<3 then
 						del(window_list,w)
 					end
 				end
 			else
 				if w.btn then
 					outline_print(
-						"❎",
-						w_x+w_width-15,
+						"❎",w_x+w_w-15,
 						w_y-0.9+sin(time()),
-						6,
-						0
+						6,0
 					)
 				end
 			end
@@ -537,41 +491,31 @@ function draw_windows()
 	)
 end
 
-function show_message(txt,dur)
+function show_msg(txt,dur)
 	local width=(#txt+2)*4+7
-	local window=add_window(
-		63-width/2,
-		50,
-		width,
-		13,
-		{" "..txt}
+	local wind=add_window(
+		63-width/2,50,width,
+		13,{" "..txt}
 	)
-	window.duration=dur
+	wind.dur=dur
 end
 
-function show_message(txt)
+function show_msg(txt)
 	talk_window=add_window(
-		16,
-		50,
-		94,
-		#txt*6+7,
-		txt
+		16,50,94,#txt*6+7,txt
 	)
 	talk_window.btn=true
 end
 
 function add_floater(
-	text,
-	x,
-	y,
-	color_num
+	txt,x,y,clr
 )
 	add(floaters,{
-		text=text,
+		txt=txt,
 		x=x,
 		y=y,
-		color_num=color_num,
-		target_y=y-10,
+		clr=clr,
+		trg_y=y-10,
 		timer=0
 	})
 end
@@ -579,7 +523,7 @@ end
 function anim_floaters()
 	for_each(floaters,
 		function (flt)
-			flt.y+=(flt.target_y-flt.y)/10
+			flt.y+=(flt.trg_y-flt.y)/10
 			flt.timer+=1
 			if flt.timer>70 then
 				del(floaters,flt)
@@ -600,85 +544,69 @@ end
 -->8
 -- monsters
 
-function add_mob(
-	typ,
-	mob_x,
-	mob_y
-)
+function add_mob(typ,x,y)
 	return add(mob_list,{
-		x=mob_x,
-		y=mob_y,
+		x=x,
+		y=y,
 		ox=0,
 		oy=0,
 		sox=0,
 		soy=0,
 		sprt=mob_sprs[typ],
 		flash=0,
-		is_flipped=false,
-		animation=nil,
+		flipped=false,
+		anim=nil,
 		hp=mob_hp[typ],
 		max_hp=mob_hp[typ],
 		atk=mob_atk[typ]
 	})
 end
 
-function mob_walk(
-	mob,
-	dest_x,
-	dest_y
-)
-	mob.x+=dest_x
-	mob.y+=dest_y
+function mob_walk(mob,d_x,d_y)
+	mob.x+=d_x
+	mob.y+=d_y
 			
-	mob_flip(mob,dest_x)
-	mob.sox,mob.soy=-dest_x*8,
-		-dest_y*8
+	mob_flip(mob,d_x)
+	mob.sox,mob.soy=-d_x*8,-d_y*8
 	mob.ox,mob.oy=mob.sox,mob.soy
 	
-	mob.animation=walk_animation
+	mob.anim=walk_anim
 end
 
-function mob_bump(
-	mob,
-	dest_x,
-	dest_y
-)
-	mob_flip(mob,dest_x)
-	mob.sox,mob.soy=dest_x*8,
-		dest_y*8
+function mob_bump(mob,d_x,d_y)
+	mob_flip(mob,d_x)
+	mob.sox,mob.soy=d_x*8,d_y*8
 	mob.ox,mob.oy=0,0
 					
-	mob.animation=bump_animation
+	mob.anim=bump_anim
 end
 
-function mob_flip(mob,dest_x)
-	if dest_x<0 then
-		mob.is_flipped=true
-	elseif dest_x>0 then
-		mob.is_flipped=false
+function mob_flip(mob,d_x)
+	if d_x<0 then
+		mob.flipped=true
+	elseif d_x>0 then
+		mob.flipped=false
 	end
 end
 
 
-function walk_animation(
-	self,
-	anim_timer
+function walk_anim(
+	self,anim_timer
 )
-	local timer=1-anim_timer
-	self.ox=self.sox*timer
-	self.oy=self.soy*timer
+	local t=1-anim_timer
+	self.ox=self.sox*t
+	self.oy=self.soy*t
 end
 
-function bump_animation(
-	self,
-	anim_timer
+function bump_anim(
+	self,anim_timer
 )
-	local timer=anim_timer>0.5
+	local t=anim_timer>0.5
 		and 1-anim_timer
 		or anim_timer
 	
-	self.ox=self.sox*timer
-	self.oy=self.soy*timer
+	self.ox=self.sox*t
+	self.oy=self.soy*t
 end
 
 function do_ai()
@@ -687,14 +615,10 @@ function do_ai()
 		function (m)
 			if (m==plyr) return
 			
-			m.animation=nil
+			m.anim=nil
 			
-			if
-				dist(
-					m.x,
-					m.y,
-					plyr.x,
-					plyr.y
+			if dist(
+					m.x,m.y,plyr.x,plyr.y
 				)==1
 			then
 				-- attack player
@@ -709,19 +633,13 @@ function do_ai()
 				local best_dst,b_x,b_y=99,0,0
 				for i=1,4 do
 					local dx,dy=dirs_x[i],dirs_y[i]
-					local trgt_x,trgt_y=m.x+dx,
-						m.y+dy
+					local t_x,t_y=m.x+dx,m.y+dy
 				
 					if is_walkable(
-						trgt_x,
-						trgt_y,
-						"checkmobs"
+						t_x,t_y,"checkmobs"
 					) then
 						local dst=dist(
-							trgt_x,
-							trgt_y,
-							plyr.x,
-							plyr.y
+							t_x,t_y,plyr.x,plyr.y
 						)
 						
 						if dst<best_dst then
@@ -731,7 +649,7 @@ function do_ai()
 				end
 				
 				mob_walk(m,b_x,b_y)
-				update_func=update_ai_turn
+				_upd=update_ai_turn
 				plyr_timer=0
 			end
 		end
