@@ -25,7 +25,6 @@ end
 function _draw()
 	_drw()
 	draw_windows()
-	upd_hp_box()
 	check_fade()
 end
 
@@ -33,6 +32,7 @@ function _update60()
 	frames+=1
 	_upd()
 	anim_floaters()
+	upd_hp_box()
 end
 
 function startgame()
@@ -61,8 +61,13 @@ function startgame()
 	-- list of floating text
 	floaters={}
 	
+	-- fog map
+	fog=blank_map(1)
+	
 	_upd=update_game
 	_drw=draw_game
+	
+	unfog()
 end
 -->8
 -- updates
@@ -106,16 +111,13 @@ function update_ai_turn()
 		1
 	)
 	
-	for_each(mobs,
-		function(mob)
-			if
-				mob==plyr
-				or not mob.anim
-			then return end
-				
-			mob:anim(plyr_timer)	
-		end
-	)
+	for_each(mobs,function(mob)
+		if
+			mob!=plyr and mob.anim
+		then
+			mob:anim(plyr_timer)
+		end	
+	end)
 	
 	if plyr_timer==1 then
 		_upd=update_game
@@ -184,6 +186,14 @@ function draw_game()
 	end)
 	
 	draw_mob(plyr)
+	
+	for x=0,15 do
+		for y=0,15 do
+			if fog[x][y]==1 then
+				draw_rect(x*8,y*8,8,8,0)
+			end
+		end
+	end
 	
 	for_each(floaters,
 		function (fl)
@@ -305,6 +315,19 @@ function fadeout(spd,t)
 	until fadeperc==1
 	wait(t)
 end
+
+function blank_map(dflt)
+	local ret={}
+	dflt=dflt or 0
+	
+	for x=0,15 do
+		ret[x]={}
+		for y=0,15 do
+			ret[x][y]=dflt
+		end
+	end
+	return ret
+end
 -->8
 -- gameplay
 
@@ -340,6 +363,8 @@ function move_player(dx,dy)
 	
 	plyr_timer=0
 	_upd=update_player_turn
+	
+	unfog()
 end
 
 function trigger_bump(
@@ -422,6 +447,65 @@ function check_end()
 	_upd=update_gameover
 	_drw=draw_gameover
 	fadeout(0.02)
+end
+
+function los(x1,y1,x2,y2)
+	local frst,sx,sy,dx,dy=true
+	
+	if dist(x1,y1,x2,y2)==1 then
+		return true
+	end
+	
+	if x1<x2 then
+		sx=1
+		dx=x2-x1
+	else
+		sx=-1
+		dx=x1-x2
+	end
+	
+	if y1<y2 then
+		sy=1
+		dy=y2-y1
+	else
+		sy=-1
+		dy=y1-y2
+	end
+	
+	local err,e2=dx-dy,nil
+	
+	while not(x1==x2 and y1==y2) do
+		if	
+			not frst
+			and not is_walkable(
+				x1,y1,"sight"
+			)
+		then return false end
+		
+		frst=false
+		e2=err+err
+		
+		if e2>-dy then
+			err=err-dy
+			x1=x1+sx
+		end
+		
+		if e2<dx then
+			err=err+dx
+			y1=y1+sy
+		end
+	end
+	return true
+end
+
+function unfog()
+	for x=0,15 do
+		for y=0,15 do
+			if los(plyr.x,plyr.y,x,y) then
+				fog[x][y]=0
+			end
+		end
+	end
 end
 -->8
 -- ui
@@ -545,20 +629,18 @@ end
 -- monsters
 
 function add_mob(typ,x,y)
-	return add(mob_list,{
+	return add(mobs,{
 		x=x,
 		y=y,
 		ox=0,
 		oy=0,
-		sox=0,
-		soy=0,
 		sprt=mob_sprs[typ],
 		flash=0,
 		flipped=false,
-		anim=nil,
 		hp=mob_hp[typ],
 		max_hp=mob_hp[typ],
-		atk=mob_atk[typ]
+		atk=mob_atk[typ],
+		task=ai_wait
 	})
 end
 
@@ -610,50 +692,84 @@ function bump_anim(
 end
 
 function do_ai()
-	for_each(
-		mob_list,
-		function (m)
-			if (m==plyr) return
+	local moving
+	for_each(mobs,function (m)
+		if (m==plyr) return
+		
+		m.anim=nil
+		moving=m:task() or moving
+	end)
+	
+	if moving then
+		_upd=update_ai_turn
+		plyr_timer=0
+	end
+end
+
+function ai_wait(m)
+	if los(
+		m.x,m.y,plyr.x,plyr.y
+	) then
+		-- aggro
+		m.task=ai_attack
+		m.tx,m.ty=plyr.x,plyr.y
+		add_floater(
+			"!",m.x*8+2,m.y*8,10
+		)
+		return true
+	end
+end
+
+function ai_attack(m)
+	if dist(
+			m.x,m.y,plyr.x,plyr.y
+		)==1
+	then
+		-- attack player
+		local dx,dy=plyr.x-m.x,
+			plyr.y-m.y
 			
-			m.anim=nil
+		mob_bump(m,dx,dy)
+		hit_mob(m,plyr)
+		sfx(57)
+		return true
+	else
+		-- move to player
+		if los(
+			m.x,m.y,plyr.x,plyr.y
+		) then
+			m.tx,m.ty=plyr.x,plyr.y
+		end
+		
+		if m.x==m.tx and m.y==m.ty then
+			-- de aggro
+			m.task=ai_wait
+			add_floater(
+				"?",m.x*8+2,m.y*8,10
+			)
+		else
+			local best_dst,b_x,b_y=99,0,0
+			for i=1,4 do
+				local dx,dy=dirs_x[i],dirs_y[i]
+				local t_x,t_y=m.x+dx,m.y+dy
 			
-			if dist(
-					m.x,m.y,plyr.x,plyr.y
-				)==1
-			then
-				-- attack player
-				local dx,dy=plyr.x-m.x,
-					plyr.y-m.y
+				if is_walkable(
+					t_x,t_y,"checkmobs"
+				) then
+					local dst=dist(
+						t_x,t_y,m.tx,m.ty
+					)
 					
-				mob_bump(m,dx,dy)
-				hit_mob(m,plyr)
-				sfx(57)
-			else
-				-- move to player
-				local best_dst,b_x,b_y=99,0,0
-				for i=1,4 do
-					local dx,dy=dirs_x[i],dirs_y[i]
-					local t_x,t_y=m.x+dx,m.y+dy
-				
-					if is_walkable(
-						t_x,t_y,"checkmobs"
-					) then
-						local dst=dist(
-							t_x,t_y,plyr.x,plyr.y
-						)
-						
-						if dst<best_dst then
-							best_dst,b_x,b_y=dst,dx,dy
-						end
+					if dst<best_dst then
+						best_dst,b_x,b_y=dst,dx,dy
 					end
 				end
-				
-				mob_walk(m,b_x,b_y)
-				_upd=update_ai_turn
-				plyr_timer=0
 			end
+		
+			mob_walk(m,b_x,b_y)
+			return true
 		end
-	)
+	end
 end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
