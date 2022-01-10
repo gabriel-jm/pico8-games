@@ -4,22 +4,26 @@ __lua__
 -- initialization
 
 function _init()
+	local s=split
 	-- directions
-	dirs_x=split"-1,1,0,0,1,1,-1,-1"
-	dirs_y=split"0,0,-1,1,-1,1,1,-1"
+	dirs_x=s"-1,1,0,0,1,1,-1,-1"
+	dirs_y=s"0,0,-1,1,-1,1,1,-1"
 	
-	dpal=split[[
+	dpal=s[[
 		0,1,1,2,1,13,6,4,
 		4,9,3,13,1,13,14
 	]]
 	
-	mob_sprs=split"240,192"
-	mob_atk=split"1,1"
-	mob_hp=split"5,2"
-	mob_los=split"4,4"
+	mob_sprs=s"240,192"
+	mob_atk=s"1,1"
+	mob_hp=s"5,2"
+	mob_los=s"4,4"
 	
-	item_name=split"broad sword,leather armor,red potion"
-	
+	item_name=s"broad sword,leather armor,red potion,ninja star,steel axe"
+	item_type=s"wep,arm,fud,thr,wep"
+	item_stat1=s"2,0,0,0,1"
+	item_stat2=s"0,2,0,0,0"
+		
 	frames=0
 		
 	startgame()
@@ -66,6 +70,8 @@ function startgame()
 	take_item(1)
 	take_item(2)
 	take_item(3)
+	take_item(4)
+	take_item(5)
 	
 	windows={}
 	talk_window=nil
@@ -102,22 +108,33 @@ function update_game()
 end
 
 function update_inv()
-	menu_action(inv_wind)
-	if btnp(❎) then
-		_upd=update_game
-		inv_wind.dur=0
-		stat_wind.dur=0
+	menu_action(actv_wind)
+	if btnp(4) then
+		if actv_wind==inv_wind then
+			_upd=update_game
+			inv_wind.dur=0
+			stat_wind.dur=0
+		elseif actv_wind==use_menu then
+			use_menu.dur=0
+			actv_wind=inv_wind
+		end
+	elseif btnp(5) then
+		if actv_wind==inv_wind then
+			show_use()
+		elseif actv_wind==use_menu then
+			trigger_use()
+		end
 	end
 end
 
 function menu_action(wnd)
 	if btnp(2) then
-		wnd.cursor=max(1,wnd.cursor-1)
+		wnd.cursor-=1
 	elseif btnp(3) then
-		wnd.cursor=min(
-			#wnd.text,wnd.cursor+1
-		)
+		wnd.cursor+=1
 	end
+	wnd.cursor=(wnd.cursor-1)
+		%#wnd.text+1
 end
 
 function update_player_turn()
@@ -466,6 +483,8 @@ end
 
 function hit_mob(atk_m,trgt)
 	local dmg=atk_m.atk
+	local def=trgt.defmin+flr(rnd(trgt.defmax-trgt.defmin+1))
+	dmg-=min(def,dmg)
 	
 	trgt.hp-=dmg
 	trgt.flash=10
@@ -604,6 +623,17 @@ function calc_dist(tx,ty)
 		
 		candits=cand_new
 	until #candits==0
+end
+
+function upd_stats()
+	local atk,dmin,dmax=
+		item_stat1[eqp[1]] or 0,
+		item_stat1[eqp[2]] or 0,
+		item_stat2[eqp[2]] or 0
+
+	plyr.atk=1+atk
+	plyr.defmin=dmin
+	plyr.defmax=dmax
 end
 -->8
 -- ui
@@ -747,14 +777,13 @@ function show_inv()
 		local item,eqtxt=eqp[i]
 		if item then
 			eqtxt=item_name[item]
-			add(col,6)
 		else
 			eqtxt=i==1
 				and "[weapon]"
 				or "[armor]"
-			add(col,5)
 		end
 		add(txt,eqtxt)
+		add(col,item and 6 or 5)
 	end
 	
 	add(txt,"…………………")
@@ -769,6 +798,9 @@ function show_inv()
 		add(col,item and 6 or 5)
 	end
 	
+	del(windows,inv_wind)
+	del(windows,stat_wind)
+	
 	inv_wind=add_window(
 		5,17,84,62,txt
 	)
@@ -776,10 +808,89 @@ function show_inv()
 	inv_wind.col=col
 	
 	stat_wind=add_window(
-		5,5,84,13,{"atk:1 def:1"}
+		5,5,84,13,{
+			"atk:"..plyr.atk..
+			" def:"..plyr.defmin..
+			"-"..plyr.defmax
+		}
 	)
 	
+	actv_wind=inv_wind
 	_upd=update_inv
+end
+
+function show_use()
+	local txt,i={},inv_wind.cursor
+	local item=i<3
+		and eqp[i] or inv[i-3]
+		
+	if (not item) return	
+
+	local typ=item_type[item]
+
+	if (typ=="wep" or typ=="arm")
+		and i>3
+	then
+		add(txt,"equip")
+	end
+	
+	if typ=="fud" then
+		add(txt,"eat")
+	end
+	
+	if
+		typ=="thr" or typ=="fud"
+	then
+		add(txt,"throw")
+	end
+	
+	add(txt,"trash")
+
+	use_menu=add_window(
+		84,i*6+11,36,7+#txt*6,txt
+	)
+	use_menu.cursor=1
+	actv_wind=use_menu
+end
+
+function trigger_use()
+	local i,action,after=
+		inv_wind.cursor,
+		use_menu.text[use_menu.cursor],
+		"back"
+	local item=i<3
+		and eqp[i] or inv[i-3]
+	
+	if action=="trash" then
+		if i<3 then
+			eqp[i]=nil
+		else
+			inv[i-3]=nil
+		end
+	elseif action=="equip" then
+		local id=item_type[item]=="wep"
+			and 1 or 2
+		
+		inv[i-3]=eqp[id]
+		eqp[id]=item
+	elseif action=="eat" then
+	
+	elseif action=="throw" then
+	
+	end
+	
+	upd_stats()
+	
+	if after=="back" then
+		show_inv()
+		inv_wind.cursor=i
+	elseif after=="game" then
+		inv_wind.dur=0
+		stat_wind.dur=0
+		_upd=update_game
+	end
+	
+	use_menu.dur=0
 end
 -->8
 -- monsters and items
@@ -796,6 +907,8 @@ function add_mob(typ,x,y)
 		hp=mob_hp[typ],
 		max_hp=mob_hp[typ],
 		atk=mob_atk[typ],
+		defmin=0,
+		defmax=0,
 		los=mob_los[typ],
 		task=ai_wait
 	})
