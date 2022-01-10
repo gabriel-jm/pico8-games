@@ -109,21 +109,12 @@ end
 
 function update_inv()
 	menu_action(actv_wind)
+	--2950
+	
 	if btnp(4) then
-		if actv_wind==inv_wind then
-			_upd=update_game
-			inv_wind.dur=0
-			stat_wind.dur=0
-		elseif actv_wind==use_menu then
-			use_menu.dur=0
-			actv_wind=inv_wind
-		end
+		actv_wind:cancel()
 	elseif btnp(5) then
-		if actv_wind==inv_wind then
-			show_use()
-		elseif actv_wind==use_menu then
-			trigger_use()
-		end
+		actv_wind:confirm()
 	end
 end
 
@@ -133,8 +124,8 @@ function menu_action(wnd)
 	elseif btnp(3) then
 		wnd.cursor+=1
 	end
-	wnd.cursor=(wnd.cursor-1)
-		%#wnd.text+1
+	wnd.cursor=
+		(wnd.cursor-1)%#wnd.text+1
 end
 
 function update_player_turn()
@@ -815,6 +806,13 @@ function show_inv()
 		}
 	)
 	
+	inv_wind.confirm=show_use
+	inv_wind.cancel=function()
+		_upd=update_game
+		inv_wind.dur=0
+		stat_wind.dur=0
+	end
+	
 	actv_wind=inv_wind
 	_upd=update_inv
 end
@@ -827,22 +825,17 @@ function show_use()
 	if (not item) return	
 
 	local typ=item_type[item]
-
-	if (typ=="wep" or typ=="arm")
-		and i>3
-	then
-		add(txt,"equip")
-	end
+	local typ_map={
+		wep="equip",
+		arm="equip",
+		fud="eat,throw",
+		thr="throw"
+	}
 	
-	if typ=="fud" then
-		add(txt,"eat")
-	end
-	
-	if
-		typ=="thr" or typ=="fud"
-	then
-		add(txt,"throw")
-	end
+	for_each(
+		split(typ_map[typ]),
+		function(act)add(txt,act)end
+	)
 	
 	add(txt,"trash")
 
@@ -850,6 +843,13 @@ function show_use()
 		84,i*6+11,36,7+#txt*6,txt
 	)
 	use_menu.cursor=1
+	
+	use_menu.confirm=trigger_use
+	use_menu.cancel=function()
+		use_menu.dur=0
+		actv_wind=inv_wind
+	end
+
 	actv_wind=use_menu
 end
 
@@ -885,9 +885,10 @@ function trigger_use()
 		show_inv()
 		inv_wind.cursor=i
 	elseif after=="game" then
-		inv_wind.dur=0
-		stat_wind.dur=0
-		_upd=update_game
+		inv_wind.cancel()
+--		inv_wind.dur=0
+--		stat_wind.dur=0
+--		_upd=update_game
 	end
 	
 	use_menu.dur=0
