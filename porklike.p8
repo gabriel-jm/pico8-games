@@ -21,7 +21,7 @@ function _init()
 	item_stat1=s"2,0,1,1,1"
 	item_stat2=s"0,2,0,0,0"
 
-	thr_dir,thr_dx,thr_dy=2,0,-1
+	thr_dx,thr_dy=0,-1
 
 	frames=0
 		
@@ -46,6 +46,8 @@ function startgame()
 	
 	btn_buffer=-1
 	
+	skip_ai=false
+	
 	--[[
 		inventory and equipments
 		inv size = 1 to 6
@@ -65,12 +67,12 @@ function startgame()
 	add_mob(2,7,5)
 	add_mob(2,6,9)
 	add_mob(2,9,12)
-	
-	take_item(1)
-	take_item(2)
-	take_item(3)
-	take_item(4)
-	take_item(5)
+--	
+--	take_item(1)
+--	take_item(2)
+--	take_item(3)
+--	take_item(4)
+--	take_item(5)
 	
 	windows={}
 	talk_window=nil
@@ -82,8 +84,8 @@ function startgame()
 	floaters={}
 	
 	-- fog map
-	fog=blank_map()
-	
+	fog=blank_map(1)
+
 	_upd=update_game
 	_drw=draw_game
 	
@@ -95,7 +97,7 @@ end
 function update_game()
 	if talk_window then
 		if get_btn()==5 then
-			talk_window.dur=0
+			talk_window:close()
 			talk_window=nil
 		end
 	else
@@ -108,8 +110,7 @@ end
 
 function update_inv()
 	menu_action(actv_wind)
-	--2950
-	
+
 	if btnp(4) then
 		actv_wind:cancel()
 	elseif btnp(5) then
@@ -140,7 +141,13 @@ function update_player_turn()
 	if anim_timer==1 then
 		_upd=update_game
 		
-		if (check_end()) do_ai()
+		if check_end() then
+			if skip_ai then
+				skip_ai=false
+			else
+				do_ai()
+			end
+		end
 		
 		calc_dist(plyr.x,plyr.y)
 	end
@@ -150,11 +157,9 @@ function update_throw()
 	local bt=get_btn()
 	
 	if bt>=0 and bt<=3 then
-		thr_dir=bt
+		thr_dx=dirs_x[bt+1]
+		thr_dy=dirs_y[bt+1]
 	end
-	
-	thr_dx=dirs_x[thr_dir+1]
-	thr_dy=dirs_y[thr_dir+1]
 	
 	if bt==4 then
 		_upd=update_game
@@ -247,21 +252,20 @@ function draw_game()
 	
 	if _upd==update_throw then
 		local tx,ty=throw_tile()
-		local lx1=plyr.x*8+3+thr_dx*4
-		local ly1=plyr.y*8+3+thr_dy*4
-		local lx2=mid(0,tx*8+3,127)
-		local ly2=mid(0,ty*8+3,127)
+		local lx1,ly1=
+			plyr.x*8+3+thr_dx*4,
+			plyr.y*8+3+thr_dy*4
+		local lx2,ly2=
+			mid(0,tx*8+3,127),
+			mid(0,ty*8+3,127)
 		
-		line(
+		rectfill(
 			lx1+thr_dy,ly1+thr_dx,
-			lx2+thr_dy,ly2+thr_dx,0
-		)
-		line(
-			lx1-thr_dy,ly1-thr_dx,
 			lx2-thr_dy,ly2-thr_dx,0
 		)
 		
-		fillp(flr(frames/7)%2==0
+		local thrani=flr(frames/7)%2==0
+		fillp(thrani
 			and 0b1010010110100101
 			or 0b0101101001011010
 		)
@@ -273,6 +277,12 @@ function draw_game()
 		outline_print(
 			"+",lx2-1,ly2-2,7,0
 		)
+		
+		local mb=get_mob(tx,ty)
+		
+		if mb and thrani then
+			mb.flash=1
+		end
 	end
 	
 	for x=0,15 do
@@ -447,7 +457,9 @@ function move_player(dx,dy)
 				trigger_bump(
 					tile,dest_x,dest_y
 				)
-			end
+			else
+				skip_ai=true
+			end		
 		end
 	end
 	
@@ -464,10 +476,18 @@ function trigger_bump(
 		-- vase
 		sfx(59)
 		mset(d_x,d_y,1)
+		if rnd(4)<1 then
+			local itm=flr(rnd(#item_name))+1
+			take_item(itm)
+			show_msg(item_name[itm],60)
+		end
 	elseif tile==10 or tile==12 then
 		-- chest
 		sfx(61)
 		mset(d_x,d_y,tile-1)
+		local itm=flr(rnd(#item_name))+1
+		take_item(itm)
+		show_msg(item_name[itm],60)
 	elseif tile==13 then
 		-- door
 		sfx(62)
@@ -693,24 +713,26 @@ function eat(item,mob)
 end
 
 function throw()
-	local tx,ty,itm=throw_tile(),
-		inv[thrslt]
-	
+	local itm,tx,ty=inv[thrslt],
+		throw_tile()
+
 	if in_bounds(tx,ty) then
 		local mb=get_mob(tx,ty)
 		
-		if mb then
-			if item_type[itm]=="fud" then
-				eat(itm,mb)	
-			else
-				hitmob({
-					atk=item_stat1[itm]
-				},mb)
-			end
+		if (not mb) return
+		
+		if item_type[itm]=="fud" then
+			eat(itm,mb)	
+		else
+			hit_mob({
+				atk=item_stat1[itm]
+			},mb)
+			sfx(58)
 		end
 	end
+
 	mob_bump(plyr,thr_dx,thr_dy)
-	
+
 	inv[thrslt]=nil
 	anim_timer=0
 	_upd=update_player_turn
@@ -739,7 +761,10 @@ function add_window(
 		y=y,
 		width=width,
 		height=height,
-		text=txt
+		text=txt,
+		close=function(w)
+			w.dur=0
+		end
 	})
 end
 
@@ -803,8 +828,7 @@ function draw_windows()
 				if w.btn then
 					outline_print(
 						"❎",w_x+w_w-15,
-						w_y-0.9+sin(time()),
-						6,0
+						w_y-0.9+sin(time()),6,0
 					)
 				end
 			end
@@ -911,8 +935,8 @@ function show_inv()
 	inv_wind.confirm=show_use
 	inv_wind.cancel=function()
 		_upd=update_game
-		inv_wind.dur=0
-		stat_wind.dur=0
+		inv_wind:close()
+		stat_wind:close()
 	end
 	
 	actv_wind=inv_wind
@@ -948,7 +972,7 @@ function show_use()
 	
 	use_menu.confirm=trigger_use
 	use_menu.cancel=function()
-		use_menu.dur=0
+		use_menu:close()
 		actv_wind=inv_wind
 	end
 
@@ -956,52 +980,50 @@ function show_use()
 end
 
 function trigger_use()
-	local i,action,after=
+-- 3300
+	local cur,action,back=
 		inv_wind.cursor,
 		use_menu.text[use_menu.cursor],
-		"back"
-	local item=i<3
-		and eqp[i] or inv[i-3]
+		true
+	local i=cur-3
+	local item=cur<3
+		and eqp[cur] or inv[i]
 	
 	if action=="trash" then
-		if i<3 then
-			eqp[i]=nil
+		if cur<3 then
+			eqp[cur]=nil
 		else
-			inv[i-3]=nil
+			inv[i]=nil
 		end
 	elseif action=="equip" then
 		local id=item_type[item]=="wep"
 			and 1 or 2
 		
-		inv[i-3]=eqp[id]
+		inv[i]=eqp[id]
 		eqp[id]=item
 	elseif action=="eat" then
 		eat(item,plyr)
-		inv[i-3]=nil
+		inv[i]=nil
 		plyr.anim=nil
-		after="turn"
-	elseif action=="throw" then
-		thrslt=i-3
-		after="throw"
-	end
-	
-	upd_stats()
-	
-	if after=="back" then
-		show_inv()
-		inv_wind.cursor=i
-	elseif after=="turn" then
-		inv_wind.cancel()
+		back=false
 		anim_timer=0
 		_upd=update_player_turn
-	elseif after=="game" then
-		inv_wind.cancel()
-	elseif after=="throw" then
-		inv_wind.cancel()
+	elseif action=="throw" then
+		thrslt=i
+		back=false
 		_upd=update_throw
 	end
-	
-	use_menu.dur=0
+
+	upd_stats()
+	use_menu:close()
+
+	if back then
+		show_inv()
+		inv_wind.cursor=cur
+	else
+		inv_wind:close()
+		stat_wind:close()
+	end
 end
 -->8
 -- monsters and items
