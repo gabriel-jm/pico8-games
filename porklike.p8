@@ -21,9 +21,11 @@ function _init()
 	
 	item_name=s"broad sword,leather armor,red potion,ninja star,steel axe"
 	item_type=s"wep,arm,fud,thr,wep"
-	item_stat1=s"2,0,0,0,1"
+	item_stat1=s"2,0,1,0,1"
 	item_stat2=s"0,2,0,0,0"
-		
+
+	thr_dir,thr_dx,thr_dy=2,0,-1
+
 	frames=0
 		
 	startgame()
@@ -136,7 +138,7 @@ function update_player_turn()
 		1
 	)
 	
-	plyr:anim()
+	if (plyr.anim)	plyr:anim()
 	
 	if anim_timer==1 then
 		_upd=update_game
@@ -144,6 +146,23 @@ function update_player_turn()
 		if (check_end()) do_ai()
 		
 		calc_dist(plyr.x,plyr.y)
+	end
+end
+
+function update_throw()
+	local bt=get_btn()
+	
+	if bt>=0 and bt<=3 then
+		thr_dir=bt
+	end
+	
+	thr_dx=dirs_x[thr_dir+1]
+	thr_dy=dirs_y[thr_dir+1]
+	
+	if bt==4 then
+		_upd=update_game
+	elseif bt==5 then
+		throw()
 	end
 end
 
@@ -227,6 +246,36 @@ function draw_game()
 	
 	for i=#mobs,1,-1 do
 		draw_mob(mobs[i])
+	end
+	
+	if _upd==update_throw then
+		local tx,ty=throw_tile()
+		local lx1=plyr.x*8+3+thr_dx*4
+		local ly1=plyr.y*8+3+thr_dy*4
+		local lx2=mid(0,tx*8+3,127)
+		local ly2=mid(0,ty*8+3,127)
+		
+		line(
+			lx1+thr_dy,ly1+thr_dx,
+			lx2+thr_dy,ly2+thr_dx,0
+		)
+		line(
+			lx1-thr_dy,ly1-thr_dx,
+			lx2-thr_dy,ly2-thr_dx,0
+		)
+		
+		fillp(flr(frames/7)%2==0
+			and 0b1010010110100101
+			or 0b0101101001011010
+		)
+
+		line(lx1,ly1,lx2,ly2,7)
+		
+		fillp()
+		
+		outline_print(
+			"+",lx2-1,ly2-2,7,0
+		)
 	end
 	
 	for x=0,15 do
@@ -491,6 +540,16 @@ function hit_mob(atk_m,trgt)
 	end	
 end
 
+function heal_mob(mb,heal)	
+	heal=min(mb.max_hp-mb.hp,heal)
+	mb.hp+=heal
+	mb.flash=10
+	
+	add_floater(
+		"+"..heal,mb.x*8,mb.y*8,7
+	)
+end
+
 function check_end()
 	if (plyr.hp>0) return true
 
@@ -625,6 +684,32 @@ function upd_stats()
 	plyr.atk=1+atk
 	plyr.defmin=dmin
 	plyr.defmax=dmax
+end
+
+function eat(item,mob)
+	local effect=item_stat1[item]
+	
+	if effect==1 then
+		-- heal
+		heal_mob(mob,1)
+	end
+end
+
+function throw()
+	_upd=update_game
+end
+
+function throw_tile()
+	local tx,ty=plyr.x,plyr.y
+	
+	repeat
+		tx+=thr_dx
+		ty+=thr_dy
+	until not is_walkable(
+		tx,ty,"checkmobs"
+	)
+	
+	return tx,ty
 end
 -->8
 -- ui
@@ -834,7 +919,7 @@ function show_use()
 	
 	for_each(
 		split(typ_map[typ]),
-		function(act)add(txt,act)end
+		function(act) add(txt,act) end
 	)
 	
 	add(txt,"trash")
@@ -874,9 +959,12 @@ function trigger_use()
 		inv[i-3]=eqp[id]
 		eqp[id]=item
 	elseif action=="eat" then
-	
+		eat(item,plyr)
+		inv[i-3]=nil
+		plyr.anim=nil
+		after="turn"
 	elseif action=="throw" then
-	
+		after="throw"
 	end
 	
 	upd_stats()
@@ -884,11 +972,15 @@ function trigger_use()
 	if after=="back" then
 		show_inv()
 		inv_wind.cursor=i
+	elseif after=="turn" then
+		inv_wind.cancel()
+		anim_timer=0
+		_upd=update_player_turn
 	elseif after=="game" then
 		inv_wind.cancel()
---		inv_wind.dur=0
---		stat_wind.dur=0
---		_upd=update_game
+	elseif after=="throw" then
+		inv_wind.cancel()
+		_upd=update_throw
 	end
 	
 	use_menu.dur=0
@@ -939,7 +1031,6 @@ function mob_flip(mob,d_x)
 		and mob.flipped
 		or d_x<0
 end
-
 
 function walk_anim(self)
 	local t=1-anim_timer
