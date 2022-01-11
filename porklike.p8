@@ -9,10 +9,7 @@ function _init()
 	dirs_x=s"-1,1,0,0,1,1,-1,-1"
 	dirs_y=s"0,0,-1,1,-1,1,1,-1"
 	
-	dpal=s[[
-		0,1,1,2,1,13,6,4,
-		4,9,3,13,1,13,14
-	]]
+	dpal=s"0,1,1,2,1,13,6,4,4,9,3,13,1,13,14"
 	
 	mob_sprs=s"240,192"
 	mob_atk=s"1,1"
@@ -21,7 +18,7 @@ function _init()
 	
 	item_name=s"broad sword,leather armor,red potion,ninja star,steel axe"
 	item_type=s"wep,arm,fud,thr,wep"
-	item_stat1=s"2,0,1,0,1"
+	item_stat1=s"2,0,1,1,1"
 	item_stat2=s"0,2,0,0,0"
 
 	thr_dir,thr_dx,thr_dy=2,0,-1
@@ -696,7 +693,27 @@ function eat(item,mob)
 end
 
 function throw()
-	_upd=update_game
+	local tx,ty,itm=throw_tile(),
+		inv[thrslt]
+	
+	if in_bounds(tx,ty) then
+		local mb=get_mob(tx,ty)
+		
+		if mb then
+			if item_type[itm]=="fud" then
+				eat(itm,mb)	
+			else
+				hitmob({
+					atk=item_stat1[itm]
+				},mb)
+			end
+		end
+	end
+	mob_bump(plyr,thr_dx,thr_dy)
+	
+	inv[thrslt]=nil
+	anim_timer=0
+	_upd=update_player_turn
 end
 
 function throw_tile()
@@ -964,6 +981,7 @@ function trigger_use()
 		plyr.anim=nil
 		after="turn"
 	elseif action=="throw" then
+		thrslt=i-3
 		after="throw"
 	end
 	
