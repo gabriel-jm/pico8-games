@@ -64,10 +64,10 @@ function startgame()
 	plyr=add_mob(1,1,1)
 	anim_timer=0
 	
-	add_mob(2,7,5)
-	add_mob(2,6,9)
-	add_mob(2,9,12)
---	
+--	add_mob(2,7,5)
+--	add_mob(2,6,9)
+--	add_mob(2,9,12)
+
 --	take_item(1)
 --	take_item(2)
 --	take_item(3)
@@ -84,12 +84,13 @@ function startgame()
 	floaters={}
 	
 	-- fog map
-	fog=blank_map(1)
+	fog=blank_map()
 
 	_upd=update_game
 	_drw=draw_game
 	
 	unfog()
+	map_gen()
 end
 -->8
 -- updates
@@ -223,6 +224,8 @@ function btn_action()
 	elseif btn_buffer==5 then
 		-- menu button
 		show_inv()
+	elseif btn_buffer==4 then
+		map_gen()
 	end
 end
 -->8
@@ -1199,6 +1202,91 @@ function has_inv_slot()
 			return i
 		end
 	end
+end
+-->8
+-- level generation
+
+function map_gen()
+	for x=0,15 do
+		for y=0,15 do
+			mset(x,y,2)
+		end
+	end
+	
+	gen_rooms()
+end
+
+-- rooms
+
+function gen_rooms()
+	local fmax,rmax=5,5
+	local mw,mh=6,6
+
+	repeat
+		local r=rnd_room(mw,mh)
+		
+		if place_room(r) then
+			rmax-=1
+		else
+			fmax-=1
+			if r.w>r.h then
+				mw=max(mw-1,3)
+			else
+				mh=max(mh-1,3)
+			end
+		end
+	until fmax<=0 or rmax<=0 
+end
+
+function rnd_room(mw,mh)
+	local w=3+flr(rnd(mw-2))
+	mh=max(35/w,3)
+	local h=3+flr(rnd(mh-2))
+	
+	return {
+		x=0,
+		y=0,
+		w=w,
+		h=h
+	}
+end
+
+function place_room(r)
+	local cand,c={}
+	
+	for _x=0,16-r.w do
+		for _y=0,16-r.h do
+			if doesroomfit(r,_x,_y) then
+				add(cand,{x=_x,y=_y})
+			end
+		end
+	end
+	
+	if #cand==0 then return false end
+	
+	c=get_rnd(cand)
+	r.x=c.x
+	r.y=c.y
+	
+	for _x=0,r.w-1 do
+		for _y=0,r.h-1 do
+			mset(_x+r.x,_y+r.y,1)
+		end
+	end
+	
+	return true
+end
+
+function doesroomfit(r,x,y)
+	for _x=-1,r.w do
+		for _y=-1,r.h do
+			if is_walkable(_x+x,_y+y) then
+				return false
+			end
+		end
+	end
+	
+	return true
 end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
