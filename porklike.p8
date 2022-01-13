@@ -366,7 +366,7 @@ function for_each(table,cb)
 	end
 end
 
-function xy_loop(fx,fy,sx,sy)
+function for_each_xy(fx,fy,sx,sy)
 	fx=fx or 15
 	fy=fy or 15
 	sx=sx or 0
@@ -1317,27 +1317,59 @@ end
 -- maze
 
 function mazeworm()
-	local cands={}
-
-	xy_loop()(function(x,y)
-		if 
-			not is_walkable(x,y)
-			and get_sig(x,y)==255
-		then
-			add(cands,{x,y})
+	repeat
+		local cands={}
+	
+		for_each_xy()(function(x,y)
+			if 
+				not is_walkable(x,y)
+				and get_sig(x,y)==255
+			then
+				add(cands,{x,y})
+			end
+		end)
+		
+		if #cands>0 then
+			local c=get_rnd(cands)
+		
+			digworm(unpack(c))
 		end
-	end)
+	until #cands<=1
+end
+
+function digworm(x,y)
+	local dr=1+flr(rnd(4))
 	
-	if #cands>0 then
-		local c=get_rnd(cands)
-	
-		--digworm(unpack(c))
-	end
+	repeat
+		mset(x,y,1)
+		
+		if
+			not can_carv(
+				x+dirs_x[dr],y+dirs_y[dr]
+			) or rnd()<0.5
+		then
+			local cands={}
+		
+			for i=1,4 do
+				if can_carv(
+					x+dirs_x[i],y+dirs_y[i]
+				) then
+					add(cands,i)
+				end
+			end
+			
+			dr=#cands==0
+				and 8 or get_rnd(cands)
+		end
+		
+		x+=dirs_x[dr]
+		y+=dirs_y[dr]
+	until dr==8
 end
 
 function can_carv(x,y)
 	if
-		in_bouns(x,y) 
+		not in_bounds(x,y) 
 		and not is_walkable(x,y)
 	then
 		return false
