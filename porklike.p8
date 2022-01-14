@@ -1248,6 +1248,7 @@ function map_gen()
 	gen_rooms()
 	mazeworm()
 	placeflags()
+	carvedoors()
 end
 
 -- rooms
@@ -1462,6 +1463,48 @@ function grow_flag(x,y,flg)
 		
 		cand=candnew
 	until #cand==0
+end
+
+function carvedoors()
+	local x1,y1,x2,y2,found,f1,f2=1,1,1,1
+	
+	repeat
+		local drs={}
+		
+		for_each_xy()(function(x,y)
+			if not is_walkable(x,y) then
+				local sig=get_sig(x,y)
+				
+				found=false
+				if bcomp(
+					sig,0b11000000,0b00001111
+				) then
+					x1,y1,x2,y2,found=
+						x,y-1,x,y+1,true
+				elseif bcomp(
+					sig,0b00110000,0b00001111
+				) then
+					x1,y1,x2,y2,found=
+						x+1,y,x-1,y,true
+				end
+	
+				f1=flags[x1][y1]
+				f2=flags[x2][y2]
+				
+				if found and f1!=f2 then
+					add(
+						drs,{x=x,y=y,f1=f1,f2=f2}
+					)
+				end
+			end
+		end)
+	
+		if #drs>0 then
+			local d=get_rnd(drs)
+			mset(d.x,d.y,1)
+			grow_flag(d.x,d.y,d.f1)
+		end
+	until #drs==0
 end
 __gfx__
 000000000000000060666060d0ddd0d00000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
