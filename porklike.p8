@@ -305,6 +305,14 @@ function draw_game()
 		end
 	end
 	
+	for x=0,15 do
+		for y=0,15 do
+			if flags[x][y]!=0 then
+				pset(x*8+3,y*8+5,flags[x][y])
+			end
+		end
+	end
+	
 	for_each(floaters,function(fl)
 		outline_print(
 			fl.txt,fl.x,fl.y,fl.clr,0
@@ -1239,12 +1247,13 @@ function map_gen()
 	
 	gen_rooms()
 	mazeworm()
+	placeflags()
 end
 
 -- rooms
 
 function gen_rooms()
-	local fmax,rmax=5,5
+	local fmax,rmax=5,4
 	local mw,mh=6,6
 
 	repeat
@@ -1338,7 +1347,7 @@ function mazeworm()
 end
 
 function digworm(x,y)
-	local dr=1+flr(rnd(4))
+	local step,dr=0,1+flr(rnd(4))
 	
 	repeat
 		mset(x,y,1)
@@ -1346,9 +1355,11 @@ function digworm(x,y)
 		if
 			not can_carv(
 				x+dirs_x[dr],y+dirs_y[dr]
-			) or rnd()<0.5
+			)
+			or (rnd()<0.5 and step>2)
 		then
 			local cands={}
+			step=0
 		
 			for i=1,4 do
 				if can_carv(
@@ -1364,6 +1375,7 @@ function digworm(x,y)
 		
 		x+=dirs_x[dr]
 		y+=dirs_y[dr]
+		step+=1
 	until dr==8
 end
 
@@ -1407,6 +1419,49 @@ function get_sig(x,y)
 	end
 	
 	return sig
+end
+
+-- doorways
+
+function placeflags()
+	local curf=1
+	flags=blank_map()
+	
+	for x=0,15 do
+		for y=0,15 do
+			if is_walkable(x,y)
+				and flags[x][y]==0
+			then
+				grow_flag(x,y,curf)
+				curf+=1
+			end
+		end
+	end
+end
+
+function grow_flag(x,y,flg)
+	local cand,candnew={{x=x,y=y}}
+	
+	repeat
+		candnew={}
+		
+		for_each(cand,function(c)
+			flags[c.x][c.y]=flg
+			for d=1,4 do
+				local dx,dy=c.x+dirs_x[d],
+					c.y+dirs_y[d]
+					
+				if
+					is_walkable(dx,dy)
+					and flags[dx][dy]!=flg
+				then
+					add(candnew,{x=dx,y=dy})
+				end
+			end
+		end)
+		
+		cand=candnew
+	until #cand==0
 end
 __gfx__
 000000000000000060666060d0ddd0d00000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
