@@ -305,14 +305,6 @@ function draw_game()
 		end
 	end
 	
-	for x=0,15 do
-		for y=0,15 do
-			if flags[x][y]!=0 then
-				pset(x*8+3,y*8+5,flags[x][y])
-			end
-		end
-	end
-	
 	for_each(floaters,function(fl)
 		outline_print(
 			fl.txt,fl.x,fl.y,fl.clr,0
@@ -1249,6 +1241,8 @@ function map_gen()
 	mazeworm()
 	placeflags()
 	carvedoors()
+	carvescuts()
+	fill_ends()
 end
 
 -- rooms
@@ -1354,8 +1348,11 @@ function digworm(x,y)
 		mset(x,y,1)
 		
 		if
-			not can_carv(
-				x+dirs_x[dr],y+dirs_y[dr]
+			not (
+				not is_walkable(x,y)
+				and can_carv(
+					x+dirs_x[dr],y+dirs_y[dr]
+				)
 			)
 			or (rnd()<0.5 and step>2)
 		then
@@ -1381,10 +1378,7 @@ function digworm(x,y)
 end
 
 function can_carv(x,y)
-	if
-		not in_bounds(x,y) 
-		and not is_walkable(x,y)
-	then
+	if not in_bounds(x,y) then
 		return false
 	end
 
@@ -1465,6 +1459,50 @@ function grow_flag(x,y,flg)
 	until #cand==0
 end
 
+function carvescuts()
+	local x1,y1,x2,y2,cuts,found=
+		1,1,1,1,0
+	
+	repeat
+		local drs={}
+		
+		for_each_xy()(function(x,y)
+			if not is_walkable(x,y) then
+				local sig=get_sig(x,y)
+				
+				found=false
+				if bcomp(
+					sig,0b11000000,0b00001111
+				) then
+					x1,y1,x2,y2,found=
+						x,y-1,x,y+1,true
+				elseif bcomp(
+					sig,0b00110000,0b00001111
+				) then
+					x1,y1,x2,y2,found=
+						x+1,y,x-1,y,true
+				end
+	
+				--f1=flags[x1][y1]
+				--f2=flags[x2][y2]
+				
+				if found --[[and f1!=f2]] then
+					calc_dist(x1,y1)
+					if dist_map[x2][y2]>20 then
+						add(drs,{x=x,y=y})
+					end
+				end
+			end
+		end)
+	
+		if #drs>0 then
+			local d=get_rnd(drs)
+			mset(d.x,d.y,1)
+			cuts+=1
+		end
+	until #drs==0 or cuts>=3
+end
+
 function carvedoors()
 	local x1,y1,x2,y2,found,f1,f2=1,1,1,1
 	
@@ -1505,6 +1543,24 @@ function carvedoors()
 			grow_flag(d.x,d.y,d.f1)
 		end
 	until #drs==0
+end
+
+function fill_ends()
+	repeat
+		local cands={}
+		
+		for_each_xy()(function(x,y)
+			if is_walkable(x,y)
+				and can_carv(x,y)
+			then
+				add(cands,{x=x,y=y})
+			end
+		end)
+		
+		for_each(cands,function(c)
+			mset(c.x,c.y,3)
+		end)
+	until #cands==0
 end
 __gfx__
 000000000000000060666060d0ddd0d00000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
