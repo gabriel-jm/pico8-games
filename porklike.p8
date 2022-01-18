@@ -1348,11 +1348,8 @@ function digworm(x,y)
 		mset(x,y,1)
 		
 		if
-			not (
-				not is_walkable(x,y)
-				and can_carv(
-					x+dirs_x[dr],y+dirs_y[dr]
-				)
+			not can_carv(
+				x+dirs_x[dr],y+dirs_y[dr]
 			)
 			or (rnd()<0.5 and step>2)
 		then
@@ -1360,9 +1357,11 @@ function digworm(x,y)
 			step=0
 		
 			for i=1,4 do
-				if can_carv(
-					x+dirs_x[i],y+dirs_y[i]
-				) then
+				if 
+					can_carv(
+						x+dirs_x[i],y+dirs_y[i]
+					)
+				then
 					add(cands,i)
 				end
 			end
@@ -1377,18 +1376,19 @@ function digworm(x,y)
 	until dr==8
 end
 
-function can_carv(x,y)
-	if not in_bounds(x,y) then
-		return false
-	end
-
-	local sig=get_sig(x,y)
+function can_carv(x,y,walk)
+	if
+		in_bounds(x,y)
+		and is_walkable(x,y)==walk
+	then
+		local sig=get_sig(x,y)
 	
-	for i=1,#crv_sigs do
-		if bcomp(
-			sig,crv_sigs[i],crv_msks[i]
-		) then
-			return true
+		for i=1,#crv_sigs do
+			if bcomp(
+				sig,crv_sigs[i],crv_msks[i]
+			) then
+				return true
+			end
 		end
 	end
 end
@@ -1436,12 +1436,12 @@ end
 
 function grow_flag(x,y,flg)
 	local cand,candnew={{x=x,y=y}}
+	flags[x][y]=flg
 	
 	repeat
 		candnew={}
 		
 		for_each(cand,function(c)
-			flags[c.x][c.y]=flg
 			for d=1,4 do
 				local dx,dy=c.x+dirs_x[d],
 					c.y+dirs_y[d]
@@ -1450,6 +1450,7 @@ function grow_flag(x,y,flg)
 					is_walkable(dx,dy)
 					and flags[dx][dy]!=flg
 				then
+					flags[dx][dy]=flg
 					add(candnew,{x=dx,y=dy})
 				end
 			end
@@ -1460,40 +1461,39 @@ function grow_flag(x,y,flg)
 end
 
 function carvescuts()
-	local x1,y1,x2,y2,cuts,found=
+	local x1,y1,x2,y2,cuts,found,drs=
 		1,1,1,1,0
 	
 	repeat
-		local drs={}
+		drs={}
 		
-		for_each_xy()(function(x,y)
-			if not is_walkable(x,y) then
-				local sig=get_sig(x,y)
+		for x=0,15 do
+			for y=0,15 do
+				if not is_walkable(x,y) then
+					local sig=get_sig(x,y)
+					
+					found=false
+					if bcomp(
+						sig,0b11000000,0b00001111
+					) then
+						x1,y1,x2,y2,found=
+							x,y-1,x,y+1,true
+					elseif bcomp(
+						sig,0b00110000,0b00001111
+					) then
+						x1,y1,x2,y2,found=
+							x+1,y,x-1,y,true
+					end
 				
-				found=false
-				if bcomp(
-					sig,0b11000000,0b00001111
-				) then
-					x1,y1,x2,y2,found=
-						x,y-1,x,y+1,true
-				elseif bcomp(
-					sig,0b00110000,0b00001111
-				) then
-					x1,y1,x2,y2,found=
-						x+1,y,x-1,y,true
-				end
-	
-				--f1=flags[x1][y1]
-				--f2=flags[x2][y2]
-				
-				if found --[[and f1!=f2]] then
-					calc_dist(x1,y1)
-					if dist_map[x2][y2]>20 then
-						add(drs,{x=x,y=y})
+					if found then
+						calc_dist(x1,y1)
+						if dist_map[x2][y2]>20 then
+							add(drs,{x=x,y=y})
+						end
 					end
 				end
 			end
-		end)
+		end
 	
 		if #drs>0 then
 			local d=get_rnd(drs)
@@ -1504,10 +1504,11 @@ function carvescuts()
 end
 
 function carvedoors()
-	local x1,y1,x2,y2,found,f1,f2=1,1,1,1
+	local x1,y1,x2,y2,found,f1,f2,drs=
+		1,1,1,1
 	
 	repeat
-		local drs={}
+		drs={}
 		
 		for_each_xy()(function(x,y)
 			if not is_walkable(x,y) then
@@ -1546,20 +1547,22 @@ function carvedoors()
 end
 
 function fill_ends()
+	local cands
+
 	repeat
-		local cands={}
-		
-		for_each_xy()(function(x,y)
-			if is_walkable(x,y)
-				and can_carv(x,y)
-			then
-				add(cands,{x=x,y=y})
+		cands={}	
+
+		for x=0,15 do
+			for y=0,15 do
+				if can_carv(x,y,true) then
+					add(cands,{x=x,y=y})
+				end
 			end
-		end)
+		end
 		
-		for_each(cands,function(c)
-			mset(c.x,c.y,3)
-		end)
+		for c in all(cands) do
+			mset(c.x,c.y,2)
+		end
 	until #cands==0
 end
 __gfx__
