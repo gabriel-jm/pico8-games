@@ -1243,6 +1243,7 @@ function map_gen()
 	carvedoors()
 	carvescuts()
 	fill_ends()
+	start_end()
 end
 
 -- rooms
@@ -1349,7 +1350,8 @@ function digworm(x,y)
 		
 		if
 			not can_carv(
-				x+dirs_x[dr],y+dirs_y[dr]
+				x+dirs_x[dr],y+dirs_y[dr],
+				false
 			)
 			or (rnd()<0.5 and step>2)
 		then
@@ -1359,7 +1361,8 @@ function digworm(x,y)
 			for i=1,4 do
 				if 
 					can_carv(
-						x+dirs_x[i],y+dirs_y[i]
+						x+dirs_x[i],y+dirs_y[i],
+						false
 					)
 				then
 					add(cands,i)
@@ -1564,6 +1567,61 @@ function fill_ends()
 			mset(c.x,c.y,2)
 		end
 	until #cands==0
+end
+
+-- decoration
+
+function start_end()
+	local high,low,px,py=0,9999
+	
+	repeat
+		px,py=flr(rnd(16)),flr(rnd(16))	
+	until is_walkable(px,py)
+	
+	calc_dist(px,py)
+	for x=0,15 do
+		for y=0,15 do
+			local dist=dist_map[x][y]
+			
+			if is_walkable(x,y)
+				and dist>high
+			then
+				px,py=x,y
+				high=dist
+			end
+		end
+	end
+	
+	calc_dist(px,py)
+	high=0
+	low=9999
+	for x=0,15 do
+		for y=0,15 do
+			local dist=dist_map[x][y]
+			
+			if dist>high
+				and can_carv(x,y,false)
+			then
+				ex,ey=x,y
+				high=dist
+			end
+			
+			if
+				dist>=0
+				and dist<low
+				and can_carv(x,y,false)
+			then
+				px,py=x,y
+				low=dist
+			end
+		end
+	end
+	
+	mset(px,py,15)
+	plyr.x=px
+	plyr.y=py
+	
+	mset(ex,ey,14)
 end
 __gfx__
 000000000000000060666060d0ddd0d00000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
