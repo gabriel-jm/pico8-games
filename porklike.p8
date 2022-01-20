@@ -150,15 +150,15 @@ function update_player_turn()
 	
 	if anim_timer==1 then
 		_upd=update_game
-		
-		if check_end() then
-			if skip_ai then
-				skip_ai=false
-			else
-				do_ai()
-			end
+
+		if
+			check_end()
+			and not skipai
+	 then
+			do_ai()
 		end
 		
+		skip_ai=false
 		calc_dist(plyr.x,plyr.y)
 	end
 end
@@ -1237,6 +1237,10 @@ function map_gen()
 		end
 	end
 	
+	doors={}
+	rooms={}
+	room_map=blank_map()
+	
 	gen_rooms()
 	mazeworm()
 	placeflags()
@@ -1244,6 +1248,7 @@ function map_gen()
 	carvescuts()
 	fill_ends()
 	start_end()
+	installdoors()
 end
 
 -- rooms
@@ -1270,7 +1275,7 @@ end
 
 function rnd_room(mw,mh)
 	local w=3+flr(rnd(mw-2))
-	mh=max(35/w,3)
+	mh=mid(35/w,3,mh)
 	local h=3+flr(rnd(mh-2))
 	
 	return {
@@ -1297,10 +1302,12 @@ function place_room(r)
 	c=get_rnd(cand)
 	r.x=c.x
 	r.y=c.y
+	add(rooms,r)
 	
 	for _x=0,r.w-1 do
 		for _y=0,r.h-1 do
 			mset(_x+r.x,_y+r.y,1)
+			room_map[_x+r.x][_y+r.y]=#rooms
 		end
 	end
 	
@@ -1500,6 +1507,7 @@ function carvescuts()
 	
 		if #drs>0 then
 			local d=get_rnd(drs)
+			add(doors,d)
 			mset(d.x,d.y,1)
 			cuts+=1
 		end
@@ -1543,7 +1551,9 @@ function carvedoors()
 	
 		if #drs>0 then
 			local d=get_rnd(drs)
+			add(doors,d)
 			mset(d.x,d.y,1)
+		
 			grow_flag(d.x,d.y,d.f1)
 		end
 	until #drs==0
@@ -1567,6 +1577,28 @@ function fill_ends()
 			mset(c.x,c.y,2)
 		end
 	until #cands==0
+end
+
+function is_door(x,y)
+	for i=1,4 do
+		if
+			in_bounds(x+dirs_x[i],y+dirs_y[i])
+			and room_map[x+dirs_x[i]][y+dirs_y[i]]!=0
+		then
+			return true
+		end
+	end
+end
+
+function installdoors()
+	for_each(doors,function(d)
+		if
+			is_walkable(d.x,d.y)
+			and is_door(d.x,d.y)
+		then
+			mset(d.x,d.y,13)
+		end
+	end)
 end
 
 -- decoration
