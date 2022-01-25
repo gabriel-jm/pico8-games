@@ -98,8 +98,9 @@ function startgame()
 	_upd=update_game
 	_drw=draw_game
 	
+	gen_floor(0)
+	
 	unfog()
-	map_gen()
 end
 -->8
 -- updates
@@ -150,6 +151,14 @@ function update_player_turn()
 	
 	if anim_timer==1 then
 		_upd=update_game
+		local tile=mget(plyr.x,plyr.y)
+		
+		if
+			fget(tile,1)
+			and trigger_step(tile)
+		then
+			return
+		end
 
 		if
 			check_end()
@@ -159,7 +168,6 @@ function update_player_turn()
 		end
 		
 		skip_ai=false
-		calc_dist(plyr.x,plyr.y)
 	end
 end
 
@@ -529,6 +537,12 @@ function trigger_bump(
 	end
 end
 
+function trigger_step(tile)
+	if tile==14 then
+		gen_floor(floor+1)
+	end
+end
+
 function get_mob(x,y)
 	for m in all(mobs) do
   if m.x==x and m.y==y then
@@ -686,7 +700,8 @@ function unfog_tile(x,y)
 end
 
 function calc_dist(tx,ty)
-	local candits,step={},0
+	local candits,step,cand_new=
+		{},0
 	
 	dist_map=blank_map(-1)
 	add(candits,{tx,ty})
@@ -695,7 +710,7 @@ function calc_dist(tx,ty)
 	
 	repeat
 		step+=1
-		local cand_new={}
+		cand_new={}
 		
 		for_each(candits,function(c)
 			for d=1,4 do
@@ -1187,14 +1202,17 @@ function ai_attack(m)
 					end
 					
 					if dst==best_dst then
-						add(best_cand,{dx,dy})
+						add(best_cand,i)
 					end
 				end
 			end
 			
 			if #best_cand>0 then
 				local c=get_rnd(best_cand)
-				mob_walk(m,unpack(c))
+				mob_walk(
+					m,dirs_x[c],dirs_y[c]
+				)
+				
 				return true
 			end
 		end
@@ -1230,6 +1248,11 @@ end
 -->8
 -- level generation
 
+function gen_floor(num)
+	floor=num
+	map_gen()
+end
+
 function map_gen()
 	for x=0,15 do
 		for y=0,15 do
@@ -1246,8 +1269,8 @@ function map_gen()
 	placeflags()
 	carvedoors()
 	carvescuts()
-	fill_ends()
 	start_end()
+	fill_ends()
 	installdoors()
 end
 
@@ -1560,22 +1583,27 @@ function carvedoors()
 end
 
 function fill_ends()
-	local cands
+	local cands,tile
 
 	repeat
 		cands={}	
 
 		for x=0,15 do
 			for y=0,15 do
-				if can_carv(x,y,true) then
+				tile=mget(x,y)
+				if
+					can_carv(x,y,true)
+					and tile!=14
+					and tile!=15
+				then
 					add(cands,{x=x,y=y})
 				end
 			end
 		end
 		
-		for c in all(cands) do
+		for_each(cands,function(c)
 			mset(c.x,c.y,2)
-		end
+		end)
 	until #cands==0
 end
 
@@ -1637,6 +1665,14 @@ function start_end()
 				ex,ey=x,y
 				high=dist
 			end
+		end
+	end
+	
+	mset(ex,ey,14)
+	
+	for x=0,15 do
+		for y=0,15 do
+			local dist=dist_map[x][y]
 			
 			if
 				dist>=0
@@ -1652,8 +1688,6 @@ function start_end()
 	mset(px,py,15)
 	plyr.x=px
 	plyr.y=py
-	
-	mset(ex,ey,14)
 end
 __gfx__
 000000000000000060666060d0ddd0d00000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
