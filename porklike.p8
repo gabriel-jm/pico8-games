@@ -151,14 +151,8 @@ function update_player_turn()
 	
 	if anim_timer==1 then
 		_upd=update_game
-		local tile=mget(plyr.x,plyr.y)
 		
-		if
-			fget(tile,1)
-			and trigger_step(tile)
-		then
-			return
-		end
+		if (trigger_step()) return
 
 		if
 			check_end()
@@ -538,8 +532,12 @@ function trigger_bump(
 end
 
 function trigger_step(tile)
+	local tile=mget(plyr.x,plyr.y)
+
 	if tile==14 then
+		fadeout()
 		gen_floor(floor+1)
+		floor_msg()
 	end
 end
 
@@ -1067,6 +1065,10 @@ function trigger_use()
 		stat_wind:close()
 	end
 end
+
+function floor_msg()
+	show_msg("floor "..floor,120)
+end
 -->8
 -- monsters and items
 
@@ -1370,6 +1372,25 @@ function mazeworm()
 			digworm(unpack(c))
 		end
 	until #cands<=1
+	
+	repeat
+		cands={}
+		
+		for_each_xy()(function(x,y)
+			if can_carv(x,y,false)
+				and not next_to_room(x,y)
+			then
+				add(cands,{x=x,y=y})
+			end
+		end)
+		
+		if #cands>0 then
+			local c=get_rnd(cands)
+		
+			mset(c.x,c.y,1)
+		end
+	
+	until #cands<=1
 end
 
 function digworm(x,y)
@@ -1608,6 +1629,23 @@ function fill_ends()
 end
 
 function is_door(x,y)
+	local sig=get_sig(x,y)
+	
+	if
+		bcomp(
+			sig,0b11000000,0b00001111
+		)
+		or bcomp(
+			sig,0b00110000,0b00001111
+		)
+	then
+
+		return next_to_room(x,y)
+		
+	end
+end
+
+function next_to_room(x,y)
 	for i=1,4 do
 		if
 			in_bounds(x+dirs_x[i],y+dirs_y[i])
