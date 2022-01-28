@@ -190,7 +190,7 @@ function update_ai_turn()
 		1
 	)
 	
-	for_each(mobs,function(mob)
+	foreach(mobs,function(mob)
 		if
 			mob!=plyr and mob.anim
 		then
@@ -545,9 +545,13 @@ function trigger_bump(
 		-- stone tablet
 		if floor==0 then
 			show_talk({
-				"hello my dear friend",
+				"welcome to porklike!",
 				"",
-				"this is porklike"
+				"climb this sausage",
+				"tower to obtain the",
+				"ultimate power of",
+				"the golden kielbasa",
+				""
 			})
 		elseif floor==final_floor then
 			win=true
@@ -1261,6 +1265,15 @@ function can_see(m1,m2)
 	and los(m1.x,m1.y,m2.x,m2.y)
 end
 
+function spawn_mobs()
+	local placed,roompot=0,{}
+	
+	foreach(rooms,function(r)
+		add(roompot,r)
+	end)
+	
+end
+
 -- items
 
 function take_item(item_id)
@@ -1296,11 +1309,9 @@ function gen_floor(num)
 end
 
 function map_gen()
-	for x=0,15 do
-		for y=0,15 do
-			mset(x,y,2)
-		end
-	end
+	for_each_xy()(function(x,y)
+		mset(x,y,2)
+	end)
 	
 	doors={}
 	rooms={}
