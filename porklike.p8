@@ -29,6 +29,9 @@ function _init()
 		0b00000011,0b00001100,
 		0b00000110
 	]]
+	
+	wall_sig=s"251,233,253,84,146,80,16,144,112,208,241,248,210,177,225,120,179,0,124,104,161,64,240,128,224,176,242,244,116,232,178,212,247,214,254,192,48,96,32,160,245,250,243,249,246,252"
+ wall_msk=s"0,6,0,11,13,11,15,13,3,9,0,0,9,12,6,3,12,15,3,7,14,15,0,15,6,12,0,0,3,6,12,9,0,9,0,15,15,7,15,14,0,0,0,0,0,0"
 
 	final_floor=9
 	frames=0
@@ -372,17 +375,10 @@ function draw_rect(x,y,w,h,c)
 	)
 end
 
-function for_each_xy(fx,fy,sx,sy)
-	fx=fx or 15
-	fy=fy or 15
-	sx=sx or 0
-	sy=sy or 0
-	
-	return function(cb)
-		for x=sx,fx do
-			for y=sy,fy do
-				cb(x,y)
-			end
+function in_xy_pairs(cb)
+	for x=0,15 do
+		for y=0,15 do
+			cb(x,y)
 		end
 	end
 end
@@ -465,7 +461,7 @@ end
 function copy_map(x,y)
 	local tile
 	
-	for_each_xy()(function(_x,_y)
+	in_xy_pairs(function(_x,_y)
 		tile=mget(_x+x,_y+y)
 		mset(_x,_y,tile)
 		
@@ -1337,7 +1333,7 @@ function gen_floor(num)
 end
 
 function map_gen()
-	for_each_xy()(function(x,y)
+	in_xy_pairs(function(x,y)
 		mset(x,y,2)
 	end)
 	
@@ -1353,6 +1349,8 @@ function map_gen()
 	start_end()
 	fill_ends()
 	installdoors()
+	pretty_walls()
+
 	spawn_mobs()
 end
 
@@ -1437,7 +1435,7 @@ function mazeworm()
 	repeat
 		local cands={}
 	
-		for_each_xy()(function(x,y)
+		in_xy_pairs(function(x,y)
 			if
 				can_carv(x,y,false)
 				and not next_to_room(x,y)
@@ -1544,16 +1542,14 @@ function placeflags()
 	local curf=1
 	flags=blank_map()
 	
-	for x=0,15 do
-		for y=0,15 do
-			if is_walkable(x,y)
-				and flags[x][y]==0
-			then
-				grow_flag(x,y,curf)
-				curf+=1
-			end
+	in_xy_pairs(function(x,y)
+		if is_walkable(x,y)
+			and flags[x][y]==0
+		then
+			grow_flag(x,y,curf)
+			curf+=1
 		end
-	end
+	end)
 end
 
 function grow_flag(x,y,flg)
@@ -1633,7 +1629,7 @@ function carvedoors()
 	repeat
 		drs={}
 		
-		for_each_xy()(function(x,y)
+		in_xy_pairs(function(x,y)
 			if not is_walkable(x,y) then
 				local sig=get_sig(x,y)
 				
@@ -1677,7 +1673,7 @@ function fill_ends()
 	repeat
 		filled=false
 
-		for_each_xy()(function(x,y)
+		in_xy_pairs(function(x,y)
 			tile=mget(x,y)
 			
 			if
@@ -1741,7 +1737,7 @@ function start_end()
 	
 	calc_dist(px,py)
 	
-	for_each_xy()(function(x,y)
+	in_xy_pairs(function(x,y)
 		local dist=dist_map[x][y]
 			
 		if is_walkable(x,y)
@@ -1756,7 +1752,7 @@ function start_end()
 	high=0
 	low=9999
 	
-	for_each_xy()(function(x,y)
+	in_xy_pairs(function(x,y)
 		local dist=dist_map[x][y]
 			
 		if dist>high
@@ -1769,7 +1765,7 @@ function start_end()
 	
 	mset(ex,ey,14)
 	
-	for_each_xy()(function(x,y)
+	in_xy_pairs(function(x,y)
 		local dist=dist_map[x][y]
 			
 		if
@@ -1785,6 +1781,26 @@ function start_end()
 	mset(px,py,15)
 	plyr.x=px
 	plyr.y=py
+end
+
+function pretty_walls()
+	in_xy_pairs(function(x,y)
+		if mget(x,y)==2 then
+			local sig,tile=get_sig(x,y),2
+			
+			for i=1,#wall_sig do
+				if bcomp(
+					sig,wall_sig[i],wall_msk[i]
+				)
+				then
+					tile=i+15
+					break
+				end
+			end
+			
+			mset(x,y,tile)
+		end
+	end)
 end
 __gfx__
 000000000000000022222220d0ddd0d0f0fff0f000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
@@ -1916,7 +1932,7 @@ __gfx__
 66066606066066000660660066066606000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00600600000660000060060000066000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __gff__
-0000050500000303030103010307020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000050500000303030103010307020001010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 0202020202020202020202020202020200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
