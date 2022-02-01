@@ -11,12 +11,13 @@ function _init()
 	
 	dpal=s"0,1,1,2,1,13,6,4,4,9,3,13,1,13,14"
 	
+	mob_name=s"player,slime"
 	mob_sprs=s"240,192"
 	mob_atk=s"1,1"
 	mob_hp=s"5,1"
 	mob_los=s"4,4"
 	
-	item_name=s"broad sword,leather armor,red potion,ninja star,steel axe"
+	item_name=s"broad sword,leather armor,red bean paste,ninja star,rusty sword"	item_type=s"wep,arm,fud,thr,wep"
 	item_type=s"wep,arm,fud,thr,wep"
 	item_stat1=s"2,0,1,1,1"
 	item_stat2=s"0,2,0,0,0"
@@ -1373,7 +1374,7 @@ function map_gen()
 	pretty_walls()
 	installdoors()
 
-	spawn_mobs()
+	--spawn_mobs()
 	decorate_rooms()
 end
 
@@ -1745,6 +1746,7 @@ function installdoors()
 		if
 			(tile==1 or tile==4)
 			and is_door(d.x,d.y)
+			and not next2tile(d.x,d.y,13)
 		then
 			mset(d.x,d.y,13)
 		end
@@ -1917,12 +1919,15 @@ function deco_farn(r,tx,ty,x,y)
 end
 
 function deco_vase(r,tx,ty,x,y)
-	local tarr=split"1,1,1,7,8"
+	local tarr=split"1,1,7,8"
 	
 	if
 		mget(tx,ty)==1
 		and is_walkable(tx,ty,"checkmobs")
 		and not next2tile(tx,ty,13)
+		and not bcomp(
+			get_sig(tx,ty),0,0b00001111
+		)
 	then
 		mset(tx,ty,get_rnd(tarr))
 	end
