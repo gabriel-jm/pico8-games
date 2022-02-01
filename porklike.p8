@@ -1295,7 +1295,8 @@ function spawn_mobs()
 	
 	if (#mobs_pool==0) return
 	
-	local min_mobs=3
+	local min_mobs=split"3,5,7,9,10,11,12,13"
+	local max_mobs=split"6,10,14,18,20,22,24,26"
 	local placed,roompot=0,{}
 	
 	foreach(rooms,function(r)
@@ -1308,8 +1309,13 @@ function spawn_mobs()
 		placed+=infest_room(r)
 		del(roompot,r)
 	until #roompot==0
-		or placed>min_mobs
+		or placed>max_mobs[floor]
 	
+	if placed<min_mobs[floor] then
+		repeat
+			local x,y=flr(rnd(16)),flr(rnd(16))
+		until placed>=min_mobs[floor]
+	end
 end
 
 function infest_room(room)
