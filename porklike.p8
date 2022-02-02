@@ -28,15 +28,9 @@ function _init()
 	mob_maxf=s"0,3,4,5,6,7,8,8,8"
 	mob_spec=s",,,spawn,fast,stun,ghost,slow,"	
 		
-	crv_sigs=s[[0b11111111,
-		0b11010110,0b01111100,
-		0b10110011,0b11101001
-	]]
-	crv_msks=s[[0,0b00001001,
-		0b00000011,0b00001100,
-		0b00000110
-	]]
-	
+	crv_sigs=s"255,214,124,179,233"
+	crv_msks=s"0,9,3,12,6"
+
 	wall_sig=s"251,233,253,84,146,80,16,144,112,208,241,248,210,177,225,120,179,0,124,104,161,64,240,128,224,176,242,244,116,232,178,212,247,214,254,192,48,96,32,160,245,250,243,249,246,252"
  wall_msk=s"0,6,0,11,13,11,15,13,3,9,0,0,9,12,6,3,12,15,3,7,14,15,0,15,6,12,0,0,3,6,12,9,0,9,0,15,15,7,15,14,0,0,0,0,0,0"
 
@@ -86,15 +80,7 @@ function startgame()
 	plyr=add_mob(1,1,1)
 	anim_timer=0
 	
---	add_mob(2,7,5)
---	add_mob(2,6,9)
---	add_mob(2,9,12)
-
---	take_item(1)
---	take_item(2)
---	take_item(3)
---	take_item(4)
---	take_item(5)
+	mk_item_pool()
 	
 	windows={}
 	talk_window=nil
@@ -1313,13 +1299,27 @@ function spawn_mobs()
 	
 	if placed<min_mobs[floor] then
 		repeat
-			local x,y=flr(rnd(16)),flr(rnd(16))
+			local x,y
+			
+			repeat
+				x,y=flr(rnd(16)),flr(rnd(16))
+			until is_walkable(
+				x,y,"checkmobs"
+			)
+			
+			add_mob(
+				get_rnd(mobs_pool),x,y
+			)
+			placed+=1
 		until placed>=min_mobs[floor]
 	end
 end
 
 function infest_room(room)
-	local total=2+flr(rnd(3))
+	local total=2+flr(rnd(
+		(room.w*room.h)/6-1
+	))
+	total=min(5,total)
 	local x,y
 	
 	for i=1,total do
@@ -1355,6 +1355,22 @@ function has_inv_slot()
 		if not inv[i] then
 			return i
 		end
+	end
+end
+
+function mk_item_pool()
+	ipool_rar={}
+	ipool_com={}
+	
+	for i=1,#item_name do
+		local t=item_type[i]
+		
+		add(
+			(t=="wep" or t=="arm")
+				and ipool_rar
+				or ipool_com,
+				i
+		)
 	end
 end
 -->8
@@ -1400,6 +1416,7 @@ function map_gen()
 	pretty_walls()
 	installdoors()
 
+	spawn_chests()
 	spawn_mobs()
 	decorate_rooms()
 end
@@ -1953,6 +1970,38 @@ function deco_vase(r,tx,ty,x,y)
 	then
 		mset(tx,ty,get_rnd(tarr_vase))
 	end
+end
+
+function spawn_chests()
+	local room_pot,chestdice,rare=
+		{},split"0,1,1,1,2,3",true
+	local amount=get_rnd(chestdice)
+
+	foreach(rooms,function(r)
+		add(room_pot,r)
+	end)
+	
+	while
+		amount>0 and #room_pot>0
+	do
+		local r=get_rnd(room_pot)
+		place_chest(r,rare)
+		rare=false
+		amount-=1
+		del(room_pot,r)
+	end
+end
+
+function place_chest(r,rare)
+	local x,y
+	
+	repeat
+		x=r.x+flr(rnd(r.w-2))+1
+		y=r.y+flr(rnd(r.h-2))+1
+	until mget(x,y)==1
+		and not next2tile(x,y,13)
+	
+	mset(x,y,rare and 12 or 10)
 end
 __gfx__
 000000000000000066606660000000006660666066606660aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
