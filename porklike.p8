@@ -527,19 +527,37 @@ function trigger_bump(
 	if tile==7 or tile==8 then
 		-- vase
 		sfx(59)
-		mset(d_x,d_y,1)
-		if rnd(4)<1 then
-			local itm=flr(rnd(#item_name))+1
-			take_item(itm)
-			show_msg(item_name[itm],60)
+		mset(d_x,d_y,76)
+	
+		if rnd(3)<1 and floor>0 then
+			if not has_inv_slot() then
+				show_msg(
+					"inventory full",120
+				)
+			else
+				local itm=get_rnd(fipool_com)
+				
+				take_item(itm)
+				show_msg(item_name[itm],60)
+			end
 		end
 	elseif tile==10 or tile==12 then
 		-- chest
-		sfx(61)
-		mset(d_x,d_y,tile-1)
-		local itm=flr(rnd(#item_name))+1
-		take_item(itm)
-		show_msg(item_name[itm],60)
+		if not has_inv_slot() then
+			show_msg("inventory full",120)
+			skipai=true
+		else
+			local itm=get_rnd(fipool_com)
+			
+			if tile==12 then
+				itm=get_rare_item()
+			end
+			
+			sfx(61)
+			mset(d_x,d_y,tile-1)
+			take_item(itm)
+			show_msg(item_name[itm],60)
+		end
 	elseif tile==13 then
 		-- door
 		sfx(62)
@@ -1305,6 +1323,9 @@ function spawn_mobs()
 				x,y=flr(rnd(16)),flr(rnd(16))
 			until is_walkable(
 				x,y,"checkmobs"
+			) and (
+				mget(x,y)==1
+				or mget(x,y)==4
 			)
 			
 			add_mob(
@@ -1373,12 +1394,51 @@ function mk_item_pool()
 		)
 	end
 end
+
+function mk_floor_ipool()
+	fipool_rar={}
+	fipool_com={}
+	
+	foreach(
+		ipool_rar,
+		add_floor_items(fipool_rar)
+	)
+	
+	foreach(
+		ipool_com,
+		add_floor_items(fipool_com)
+	)
+end
+
+function add_floor_items(table)
+	return function(i)
+		if
+			item_minf[i]<=floor
+			and item_maxf[i]>=floor
+		then
+			add(table,i)
+		end
+	end
+end
+
+function get_rare_item()
+	if #fipool_rar>0 then
+		local itm=get_rnd(fipool_rar)
+		del(fipool_rar,itm)
+		del(ipool_rar,itm)
+		
+		return itm
+	end
+	
+	return get_rnd(fipool_com)
+end
 -->8
 -- level generation
 
 function gen_floor(num)
 	floor=num
 	
+	mk_floor_ipool()
 	mobs={}
 	add(mobs,plyr)
 	
@@ -1902,19 +1962,15 @@ function decorate_rooms()
 	tarr_farn=split"1,70,70,70,71,71,71,72,73,74"
 	tarr_vase=split"1,1,7,8"
 	
-	local decor_funcs={
+	local decor_funcs,decor_func={
 		deco_carpet,
 		deco_torch,
 		deco_dirt,
 		deco_farn,
 		deco_vase
-	}
+	},deco_vase
 
 	foreach(rooms,function(r)
-		local decor_func=get_rnd(
-			decor_funcs
-		)
-		
 		for x=0,r.w-1 do
 			for y=r.h-1,1,-1 do
 				if mget(r.x+x,r.y+y)==1 then
@@ -1923,6 +1979,10 @@ function decorate_rooms()
 					)
 				end
 			end
+			
+			decor_func=get_rnd(
+				decor_funcs
+			)
 		end
 	end)
 end
@@ -1999,7 +2059,6 @@ function place_chest(r,rare)
 		x=r.x+flr(rnd(r.w-2))+1
 		y=r.y+flr(rnd(r.h-2))+1
 	until mget(x,y)==1
-		and not next2tile(x,y,13)
 	
 	mset(x,y,rare and 12 or 10)
 end
