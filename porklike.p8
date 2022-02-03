@@ -589,9 +589,12 @@ function trigger_step(tile)
 	local tile=mget(plyr.x,plyr.y)
 
 	if tile==14 then
+		plyr.bless=0
 		fadeout()
 		gen_floor(floor+1)
 		floor_msg()
+		
+		return true
 	end
 end
 
@@ -633,6 +636,16 @@ end
 
 function hit_mob(atk_m,trgt)
 	local dmg=atk_m.atk
+	
+	-- add curse/bless
+	if trgt.bless<0 then
+		dmg*=2
+	elseif trgt.bless>0 then
+		dmg=flr(dmg/2)
+	end
+	
+	trgt.bless=0
+	
 	local def=trgt.defmin+flr(rnd(trgt.defmax-trgt.defmin+1))
 	dmg-=min(def,dmg)
 	
@@ -667,6 +680,29 @@ function stun_mob(mob)
 	add_floater(
 		"stun",mob.x*8-3,mob.y*8,7
 	)
+end
+
+function bless_mob(mob,value)
+	mob.bless=mid(
+		-1,1,mob.bless+value
+	)
+	mob.flash=10
+	
+	local txt=value<0
+		and "curse" or "bless"
+	
+	add_floater(
+		txt,mob.x*8-5,mob.y*8,7
+	)
+	
+	if
+		mob.spec=="ghost"
+		and value>0
+	then
+		mob.dur=13
+		add(dead_mobs,mob)
+		del(mobs,mob)
+	end
 end
 
 function check_end()
@@ -832,8 +868,10 @@ function eat(item,mob)
 		stun_mob(mob)
 	elseif effect==5 then
 		-- curse
+		bless_mob(mob,-1)
 	elseif effect==6 then
 		-- bless
+		bless_mob(mob,1)
 	end
 	
 	show_msg(
@@ -1054,8 +1092,17 @@ function show_inv()
 	inv_wind.cursor=3
 	inv_wind.col=col
 	
+	txt="ok    "
+	
+	if plyr.bless<0 then
+		txt="curse "
+	elseif plyr.bless>0 then
+		txt="bless "
+	end
+	
 	stat_wind=add_window(
 		5,5,84,13,{
+			txt..
 			"atk:"..plyr.atk..
 			" def:"..plyr.defmin..
 			"-"..plyr.defmax
@@ -1176,7 +1223,10 @@ function add_mob(typ,x,y)
 		atk=mob_atk[typ],
 		defmin=0,
 		defmax=0,
+		bless=0,
 		stun=false,
+		charge=1,
+		spec=mob_spec[typ],
 		los=mob_los[typ],
 		task=ai_wait
 	})
@@ -1227,11 +1277,13 @@ function do_ai()
 	foreach(mobs,function(m)
 		if (m==plyr) return
 		
+		m.anim=nil
+		
 		if m.stun then
 			m.stun=false
 		else
-			m.anim=nil
-			moving=m:task() or moving
+			m.lastmoved=m:task()
+			moving=m.lastmoved or moving
 		end
 	end)
 	
@@ -1263,7 +1315,24 @@ function ai_attack(m)
 			plyr.y-m.y
 			
 		mob_bump(m,dx,dy)
-		hit_mob(m,plyr)
+
+		if
+			m.spec=="stun"
+			and m.charge>0
+		then
+			m.charge-=1
+			stun_mob(plyr)
+		elseif
+			m.spec=="ghost"
+			and m.charge>0
+		then
+			hit_mob(m,plyr)
+			m.charge-=1
+			bless_mob(plyr,-1)
+		else
+			hit_mob(m,plyr)
+		end
+		
 		sfx(57)
 		return true
 	else
@@ -1279,6 +1348,13 @@ function ai_attack(m)
 				"?",m.x*8+2,m.y*8,10
 			)
 		else
+			if
+				m.spec=="slow"
+				and m.lastmoved
+			then				
+				return
+			end
+		
 			local best_dst=99
 			local best_cand={}
 			
@@ -1309,7 +1385,7 @@ function ai_attack(m)
 				mob_walk(
 					m,dirs_x[c],dirs_y[c]
 				)
-				
+								
 				return true
 			end
 		end
