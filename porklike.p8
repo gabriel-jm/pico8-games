@@ -97,6 +97,31 @@ function startgame()
 	food_names()
 	gen_floor(0)
 end
+
+food_effects={
+	function(mob)
+		heal_mob(mob,1)
+	end,
+	
+	function(mob)
+		heal_mob(mob,3)
+	end,
+	
+	function(mob)
+		mob.max_hp+=1
+		heal_mob(mob,1)
+	end,
+	
+	stun_mob,
+	
+	function(mob)
+		bless_mob(mob,-1)
+	end,
+	
+	function(mob)
+		bless_mob(mob,1)
+	end
+}
 -->8
 -- updates
 
@@ -465,6 +490,7 @@ function blank_map(dflt)
 			ret[x][y]=dflt
 		end
 	end
+	
 	return ret
 end
 
@@ -852,27 +878,8 @@ end
 
 function eat(item,mob)
 	local effect=item_stat1[item]
-	
-	if effect==1 then
-		-- heal
-		heal_mob(mob,1)
-	elseif effect==2 then
-		-- heals a lot
-		heal_mob(mob,3)
-	elseif effect==3 then
-		-- plus max hp
-		mob.max_hp+=1
-		heal_mob(mob,1)
-	elseif effect==4 then
-		-- stun
-		stun_mob(mob)
-	elseif effect==5 then
-		-- curse
-		bless_mob(mob,-1)
-	elseif effect==6 then
-		-- bless
-		bless_mob(mob,1)
-	end
+
+	food_effects[effect](mob)
 	
 	show_msg(
 		item_name[item].." "..item_desc[item],
@@ -1588,18 +1595,21 @@ function gen_floor(num)
 end
 
 function map_gen()
-	in_xy_pairs(function(x,y)
-		mset(x,y,2)
-	end)
+	repeat
+		in_xy_pairs(function(x,y)
+			mset(x,y,2)
+		end)
 	
-	doors={}
-	rooms={}
-	room_map=blank_map()
+		doors={}
+		rooms={}
+		room_map=blank_map()
+		
+		gen_rooms()
+		mazeworm()
+		placeflags()
+		carvedoors()
+	until #flags_lib==1
 	
-	gen_rooms()
-	mazeworm()
-	placeflags()
-	carvedoors()
 	carvescuts()
 	start_end()
 	fill_ends()
@@ -1797,13 +1807,14 @@ end
 
 function placeflags()
 	local curf=1
-	flags=blank_map()
+	flags,flags_lib=blank_map(),{}
 	
 	in_xy_pairs(function(x,y)
 		if is_walkable(x,y)
 			and flags[x][y]==0
 		then
 			grow_flag(x,y,curf)
+			add(flags_lib,curf)
 			curf+=1
 		end
 	end)
@@ -1908,7 +1919,7 @@ function carvedoors()
 				
 				if found and f1!=f2 then
 					add(
-						drs,{x=x,y=y,f=f1}
+						drs,{x=x,y=y,f1=f1,f2=f2}
 					)
 				end
 			end
@@ -1919,7 +1930,8 @@ function carvedoors()
 			add(doors,d)
 			mset(d.x,d.y,1)
 		
-			grow_flag(d.x,d.y,d.f)
+			grow_flag(d.x,d.y,d.f1)
+			del(flags_lib,d.f2)
 		end
 	until #drs==0
 end
