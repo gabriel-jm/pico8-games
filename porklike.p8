@@ -94,6 +94,7 @@ function startgame()
 	_upd=update_game
 	_drw=draw_game
 	
+	food_names()
 	gen_floor(0)
 end
 -->8
@@ -137,8 +138,7 @@ function update_player_turn()
 	do_btn_buff()
 
 	anim_timer=min(
-		anim_timer+0.125,
-		1
+		anim_timer+0.125,1
 	)
 	
 	if (plyr.anim)	plyr:anim()
@@ -178,8 +178,7 @@ function update_ai_turn()
 	do_btn_buff()
 
 	anim_timer=min(
-		anim_timer+0.125,
-		1
+		anim_timer+0.125,1
 	)
 	
 	foreach(mobs,function(mob)
@@ -192,7 +191,12 @@ function update_ai_turn()
 	
 	if anim_timer==1 then
 		_upd=update_game
-		check_end()
+		if check_end() then
+			if plyr.stun then
+				plyr.stun=false
+				do_ai()
+			end
+		end
 	end
 end
 
@@ -656,6 +660,15 @@ function heal_mob(mb,heal)
 	)
 end
 
+function stun_mob(mob)
+	mob.stun=true
+	mob.flash=10
+	
+	add_floater(
+		"stun",mob.x*8-3,mob.y*8,7
+	)
+end
+
 function check_end()
 	if win then
 		windows={}
@@ -807,7 +820,26 @@ function eat(item,mob)
 	if effect==1 then
 		-- heal
 		heal_mob(mob,1)
+	elseif effect==2 then
+		-- heals a lot
+		heal_mob(mob,3)
+	elseif effect==3 then
+		-- plus max hp
+		mob.max_hp+=1
+		heal_mob(mob,1)
+	elseif effect==4 then
+		-- stun
+		stun_mob(mob)
+	elseif effect==5 then
+		-- curse
+	elseif effect==6 then
+		-- bless
 	end
+	
+	show_msg(
+		item_name[item].." "..item_desc[item],
+		120
+	)
 end
 
 function throw()
@@ -1144,6 +1176,7 @@ function add_mob(typ,x,y)
 		atk=mob_atk[typ],
 		defmin=0,
 		defmax=0,
+		stun=false,
 		los=mob_los[typ],
 		task=ai_wait
 	})
@@ -1191,11 +1224,15 @@ end
 
 function do_ai()
 	local moving
-	foreach(mobs,function (m)
+	foreach(mobs,function(m)
 		if (m==plyr) return
 		
-		m.anim=nil
-		moving=m:task() or moving
+		if m.stun then
+			m.stun=false
+		else
+			m.anim=nil
+			moving=m:task() or moving
+		end
 	end)
 	
 	if moving then
@@ -1431,6 +1468,23 @@ function get_rare_item()
 	end
 	
 	return get_rnd(fipool_com)
+end
+
+function food_names()
+	local foods,fu=split"jerky,schnitzel,steak,gyros,fricassee,haggis,mett,kebab,burger,meatball,pizza,calzone,pasticio,chops,hams,ribs,roast,meatloaf,chili,stew,pie,wrap,taco,burrito,rolls,filet,salami,sandwich,casserole,spam,souvlaki"
+ local adjs,ad=split"yellow,green,blue,purple,black,sweet,salty,spicy,strange,old,dry,wet,smooth,soft,crusty,pickled,sour,leftover,mom's,steamed,hairy,smoked,mini,stuffed,classic,marinated,bbq,savory,baked,juicy,sloppy,cheesy,hot,cold,zesty"
+	
+	for i=1,#item_name do
+		if item_type[i]=="fud" then
+			fu,ad=get_rnd(foods),
+				get_rnd(adjs)
+				
+			del(foods,fu)
+			del(adjs,ad)
+			
+			item_name[i]=ad.." "..fu
+		end
+	end
 end
 -->8
 -- level generation
