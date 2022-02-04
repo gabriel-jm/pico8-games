@@ -2161,19 +2161,48 @@ function start_end()
 	in_xy_pairs(function(x,y)
 		local dist=dist_map[x][y]
 			
-		if
-			dist>=0
-			and dist<low
-			and can_carv(x,y)
-		then
-			px,py=x,y
-			low=dist
+		if dist>=0 then
+			local score=star_score(x,y)
+			
+			dist=dist-score
+			
+			if dist<low then
+				px,py,low=x,y,dist
+			end
 		end
 	end)
 	
 	mset(px,py,15)
 	plyr.x=px
 	plyr.y=py
+end
+
+function star_score(x,y)
+	if room_map[x][y]==0 then
+		if next_to_room(x,y) then
+			return -1
+		end
+		
+		if freestanding(x,y)>0 then
+			return 5
+		end
+			
+		if can_carv(x,y) then
+			return 0
+		end
+	end
+	
+	local scr=freestanding(x,y)
+	
+	if scr>0 then
+		if scr<=8 then
+			return 3
+		end
+		
+		return 0
+	end
+	
+	return -1
 end
 
 function next2tile(x,y,tile)
@@ -2322,6 +2351,14 @@ function place_chest(r,rare)
 	until mget(x,y)==1
 	
 	mset(x,y,rare and 12 or 10)
+end
+
+function freestanding(x,y)
+	return sig_array(
+		get_sig(x,y),
+		free_sig,
+		free_msk
+	)
 end
 __gfx__
 000000000000000066606660000000006660666066606660aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
