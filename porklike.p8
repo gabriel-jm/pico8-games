@@ -16,8 +16,8 @@ function _init()
 	item_type=s"wep,wep,wep,wep,wep,wep,arm,arm,arm,arm,arm,arm,fud,fud,fud,fud,fud,fud,thr,thr,thr,thr"
 	item_stat1=s"1,2,3,4,5,6,0,0,0,0,1,2,1,2,3,4,5,6,1,2,3,4"
 	item_stat2=s"0,0,0,0,0,0,1,2,3,4,3,3,0,0,0,0,0,0,0,0,0,0"
-	item_minf=s"1,2,3,4,5,6,1,2,3,4,5,6,1,1,1,1,1,1,1,2,3,4"
-	item_maxf=s"3,4,5,6,7,8,3,4,5,6,7,8,8,8,8,8,8,8,4,6,7,8"
+	item_minf=s"1,2,4,5,7,8,1,2,3,4,5,6,1,1,1,1,1,1,1,2,4,5"
+	item_maxf=s"4,5,7,8,10,11,3,4,5,6,7,11,11,11,11,11,11,11,4,7,8,10"
 	item_desc=s",,,,,,,,,,,,heals,heals a lot,increases hp,stuns,is cursed,is blessed,,,,"
 	
 	mob_name=s"player,slime,melt,shoggoth,mantis-man,giant scorpion,ghost,golem,drake"
@@ -27,7 +27,7 @@ function _init()
 	mob_los=s"4,4,4,4,4,4,4,4,4"
 	mob_minf=s"0,1,2,4,5,7,7,10,10"
 	mob_maxf=s"0,4,5,7,7,10,10,11,11"
-	mob_gold=s"0,1,1,3,3,5,6,8,8"
+	mob_gold=s"0,1,1,2,2,3,5,6,6"
 	mob_spec=s",,,spawn,fast,stun,ghost,slow,"	
 		
 	crv_sigs=s"255,214,124,179,233"
@@ -682,11 +682,22 @@ function trigger_bump(
 			
 			local itm=get_rnd(fipool_com)
 			
-			if (not itm) return
-			
 			sfx(61)
 			take_item(itm)
 			show_msg(item_name[itm],60)
+			
+			return
+		end
+		
+		if rnd(3)<1 then
+			sfx(61)
+			add_gold(1)
+			add_floater(
+				"+1 gold",
+				plyr.x*8-10,
+				plyr.y*8,
+				7
+			)
 		end
 	elseif tile==10 or tile==12 then
 		-- chest
@@ -825,7 +836,7 @@ function hit_mob(atk_m,trgt)
 	if trgt.hp<=0 then
 		if trgt!=plyr then
 			st_kills+=1
-			gold=min(gold+trgt.gold,99)
+			add_gold(trgt.gold)
 		else
 			st_killer=atk_m.name
 		end
@@ -834,6 +845,10 @@ function hit_mob(atk_m,trgt)
 		add(dead_mobs,trgt)
 		del(mobs,trgt)
 	end	
+end
+
+function add_gold(value)
+	gold=min(gold+value,99)
 end
 
 function heal_mob(mb,heal)	
@@ -1213,15 +1228,13 @@ function add_floater(
 end
 
 function anim_floaters()
-	foreach(floaters,
-		function (flt)
-			flt.y+=(flt.trg_y-flt.y)/10
-			flt.timer+=1
-			if flt.timer>70 then
-				del(floaters,flt)
-			end
+	foreach(floaters,function(flt)
+		flt.y+=(flt.trg_y-flt.y)/10
+		flt.timer+=1
+		if flt.timer>70 then
+			del(floaters,flt)
 		end
-	)
+	end)
 end
 
 function upd_hp_box()
@@ -1260,13 +1273,12 @@ function show_shop()
 			
 			if shop_wind.cursor==1 then
 				heal_mob(plyr,1)
+				show_msg("heals 1 hp!",80)
 			else
 				sfx(51)
 				plyr.max_hp+=1
 				show_msg("hp upgrade!",80)
 			end
-			
-			shop_wind:cancel()
 		end
 	end
 	shop_wind.cancel=function()
@@ -1462,15 +1474,17 @@ function show_hint()
 		hint_wind=nil
 	end
 	
-	local item=inv[inv_wind.cursor-3]
+	local cur=inv_wind.cursor
+	local item=cur<3
+		and eqp[cur] or inv[cur-3]
 	local typ=item_type[item]
 	
 	if item then
 		local item_hint_type={
 			wep="damage of "..
 				item_stat1[item],
-			arm="defense of "..
-				item_stat1[item].."-"..
+			arm="defense range of "..
+				item_stat1[item].." to "..
 				item_stat2[item],
 			thr="damage of "..
 				item_stat1[item],
@@ -1889,12 +1903,12 @@ function gen_floor(num)
 		return copy_map(16,0)
 	end
 	
-	if floor%3==0 then
-		return copy_map(48,0)
-	end
-	
 	if floor==final_floor then
 		return copy_map(32,0)
+	end
+	
+	if floor%3==0 then
+		return copy_map(48,0)
 	end
 	
 	fog=blank_map(1)
@@ -1943,9 +1957,11 @@ function gen_rooms()
 				mw/=2
 				mh/=2
 			end
+			
 			rmax-=1
 		else
 			fmax-=1
+			
 			if r.w>r.h then
 				mw=max(mw-1,3)
 			else
@@ -2766,7 +2782,7 @@ __sfx__
 0113000000000000000000000000000000000000000000000a14300000000000a060090600a000090000900002072020720207202005020020200500000000000000000000000000000000000000000000000000
 011200001b0001f0002200023000220001f0002000022000230002700023000200001f000200001f0001b0001f00022000200002200023000270001d000200001f0001f0001f0001f00000000000000000000000
 011200001f5001f5001b5001b50022500225002350023500225002250020500205001f5001f500205002050022500225002350023500255002550023500235002250022500225002250000000000000000000000
-01120000030000300003000130000700007000080000800008000170000b0000b0000a0000a0000a0000f00003000030000800008000080001100005000050000300003000030000300003000030000300000000
+000100000f0000b0001c5002550030500225001c50030000270001d0001d0001c00013000110000f0001000010000000000000000000000000000000000000000000000000000000000000000000000000000000
 011200001e0201e0201e032210401a0401e0401f0301f0321f0301f0301e0201e0201f0201f020210302103022030220322902029020290222902228020280202602026020260222602200000000000000000000
 011200001a7041a70415534155301a5321a5301c5401c5401c5451a540155401554516532165301a5301a5351f5401f54522544225402254222545215341f5301e5441e5401e5421e54500000000000000000000
 01120000110250e000120351500015045150000e0550e00512045150051503515005130251500516035260051a0452100513045210051604526005100251f0050e0500e0520e0520e0500c000000000000000000
