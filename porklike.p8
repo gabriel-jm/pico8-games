@@ -18,7 +18,7 @@ function _init()
 	item_stat2=s"0,0,0,0,0,0,1,2,3,4,3,3,0,0,0,0,0,0,0,0,0,0"
 	item_minf=s"1,2,3,4,5,6,1,2,3,4,5,6,1,1,1,1,1,1,1,2,3,4"
 	item_maxf=s"3,4,5,6,7,8,3,4,5,6,7,8,8,8,8,8,8,8,4,6,7,8"
-	item_desc=s",,,,,,,,,,,,heals,heals a lot,increase hp,stun,is cursed,is blessed,,,,"
+	item_desc=s",,,,,,,,,,,,heals,heals a lot,increases hp,stuns,is cursed,is blessed,,,,"
 	
 	mob_name=s"player,slime,melt,shoggoth,mantis-man,giant scorpion,ghost,golem,drake"
 	mob_sprs=s"240,192,196,200,204,208,212,216,220"
@@ -27,7 +27,7 @@ function _init()
 	mob_los=s"4,4,4,4,4,4,4,4,4"
 	mob_minf=s"0,1,2,4,5,7,7,10,10"
 	mob_maxf=s"0,4,5,7,7,10,10,11,11"
-	mob_gold=s"0,1,3,5,5,7,8,10,10"
+	mob_gold=s"0,1,1,3,3,5,6,8,8"
 	mob_spec=s",,,spawn,fast,stun,ghost,slow,"	
 		
 	crv_sigs=s"255,214,124,179,233"
@@ -682,6 +682,8 @@ function trigger_bump(
 			
 			local itm=get_rnd(fipool_com)
 			
+			if (not itm) return
+			
 			sfx(61)
 			take_item(itm)
 			show_msg(item_name[itm],60)
@@ -847,6 +849,7 @@ end
 
 function stun_mob(mob)
 	mob.stun=true
+	mob.charge=mob!=plyr and 1 or 0
 	mob.flash=10
 	
 	add_floater(
@@ -1236,14 +1239,14 @@ function show_shop()
 	shop_wind=add_window(
 		26,40,74,20,{
 			"heals: 15 gold",
-			"hp up: 30 gold"
+			"hp up: 40 gold"
 	})
 	shop_wind.cursor=1
 	
 	shop_wind.confirm=function()
 		local price=shop_wind.cursor==1
-			and 15 or 30
-		
+			and 15 or 40
+
 		if gold<price then
 			return show_msg(
 				"not enough gold!",80
@@ -1459,36 +1462,34 @@ function show_hint()
 		hint_wind=nil
 	end
 	
-	if inv_wind.cursor>3 then
-		local item=inv[inv_wind.cursor-3]
-		local typ=item_type[item]
+	local item=inv[inv_wind.cursor-3]
+	local typ=item_type[item]
+	
+	if item then
+		local item_hint_type={
+			wep="damage of "..
+				item_stat1[item],
+			arm="defense of "..
+				item_stat1[item].."-"..
+				item_stat2[item],
+			thr="damage of "..
+				item_stat1[item],
+		}
 		
-		if item then
-			local item_hint_type={
-				wep="damage of "..
-					item_stat1[item],
-				arm="defense of "..
-					item_stat1[item].."-"..
-					item_stat2[item],
-				thr="damage of "..
-					item_stat1[item],
-			}
-			
-			local txt=item_hint_type[typ]
-		
-			if typ=="fud" then
-				txt=item_known[item]
-					and "it "..item_desc[item]
-					or "???"
-			end
-				
-			hint_wind=add_window(
-				5,78,max(#txt*4+7,50),
-				20,{
-					item_type_name[typ],
-					txt
-			})
+		local txt=item_hint_type[typ]
+	
+		if typ=="fud" then
+			txt=item_known[item]
+				and "it "..item_desc[item]
+				or "???"
 		end
+			
+		hint_wind=add_window(
+			5,78,max(#txt*4+7,50),
+			20,{
+				item_type_name[typ],
+				txt
+		})
 	end
 end
 -->8
@@ -1567,7 +1568,13 @@ function do_ai()
 		m.anim=nil
 		
 		if m.stun then
+			if m.charge>0 then
+				m.charge-=1
+				return
+			end
+			
 			m.stun=false
+			m.charge=1
 		else
 			m.lastmoved=m:task()
 			moving=m.lastmoved or moving
@@ -1577,8 +1584,8 @@ function do_ai()
 	if moving then
 		_upd=update_ai_turn
 		anim_timer=0
-	else 
-		plyr.stun=false
+--	else 
+--		plyr.stun=false
 	end
 end
 
@@ -1701,8 +1708,8 @@ function spawn_mobs()
 	
 	if (#mobs_pool==0) return
 	
-	local min_mobs=split"3,5,7,9,10,11,12,13"
-	local max_mobs=split"6,10,14,18,20,22,24,26"
+	local min_mobs=split"3,5,0,7,9,0,10,11,0,12,13,0"
+	local max_mobs=split"6,10,0,14,18,0,20,22,0,24,26,0"
 	local placed,roompot=0,{}
 	
 	foreach(rooms,function(r)
