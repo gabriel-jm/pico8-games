@@ -5,7 +5,7 @@ __lua__
 
 function _init()
 	local s=split
-	shake=0
+	
 	-- directions
 	dirs_x=s"-1,1,0,0,1,1,-1,-1"
 	dirs_y=s"0,0,-1,1,-1,1,1,-1"
@@ -22,7 +22,7 @@ function _init()
 	
 	mob_name=s"player,slime,melt,shoggoth,mantis-man,giant scorpion,ghost,golem,drake"
 	mob_sprs=s"240,192,196,200,204,208,212,216,220"
-	mob_atk=s"1,1,1,2,2,3,3,5,5"
+	mob_atk=s"1,1,1,2,2,3,3,4,4"
 	mob_hp=s"5,1,2,3,3,4,5,14,8"
 	mob_los=s"4,4,4,4,4,4,4,4,4"
 	mob_minf=s"0,1,2,4,5,7,7,10,10"
@@ -41,6 +41,7 @@ function _init()
 
 	final_floor=12
 	frames=0
+	shake=0
 	
 	startgame()
 end
@@ -93,6 +94,7 @@ function startgame()
 
 	-- player
 	plyr=add_mob(1,1,1)
+--	plyr.max_hp=20
 	anim_timer=0
 	
 	mk_item_pool()
@@ -100,7 +102,9 @@ function startgame()
 	windows={}
 	talk_window=nil
 	hp_box=add_window(
-		5,5,28,13,{"♥5/5"}
+		5,5,
+		plyr.max_hp<10 and 28 or 32,
+		13,{"♥5/5"}
 	)
 
 	-- list of floating text
@@ -743,7 +747,7 @@ function trigger_bump(
 			sfx(54)
 			show_talk({
 				" offer your money to",
-				" the healing stone!"
+				" the power stone!"
 			})
 			talk_window.onclose=function()
 				show_shop()
@@ -1048,7 +1052,7 @@ function upd_stats()
 		item_stat1[eqp[2]] or 0,
 		item_stat2[eqp[2]] or 0
 
-	plyr.atk=1+atk
+	plyr.atk=plyr.base_atk+atk
 	plyr.defmin=dmin
 	plyr.defmax=dmax
 end
@@ -1081,15 +1085,15 @@ function throw()
 		
 		sfx(52)
 		
-		if (not mb) return
-		
-		if item_type[itm]=="fud" then
-			eat(itm,mb)
-		else
-			hit_mob({
-				atk=item_stat1[itm]
-			},mb)
-			sfx(58)
+		if mb then
+			if item_type[itm]=="fud" then
+				eat(itm,mb)
+			else
+				hit_mob({
+					atk=item_stat1[itm]
+				},mb)
+				sfx(58)
+			end
 		end
 	end
 
@@ -1247,22 +1251,47 @@ function upd_hp_box()
 	hp_box.y+=(y-hp_box.y)/5
 end
 
+shop_prices=split"15,30,30"
+shop_buy_events={
+	function()
+		heal_mob(plyr,1)
+		show_msg("healed 1 hp!",60)
+	end,
+	function()
+		shop_prices[2]+=5
+		sfx(51)
+		plyr.max_hp+=1
+		show_msg("hp upgrade!",60)
+	end,
+	function()
+		shop_prices[3]+=5
+		sfx(51)
+		plyr.base_atk+=1
+		show_msg("base atk upgrade",60)
+	end
+}
+
 function show_shop()
 	del(windows,shop_wind)
 	shop_wind=add_window(
-		26,40,74,20,{
-			"heals: 15 gold",
-			"hp up: 40 gold"
+		26,40,74,26,{
+			"heals : "..shop_prices[1]..
+				" gold",
+			"hp up : "..shop_prices[2]..
+				" gold",
+			"atk up: "..shop_prices[3]..
+				" gold"
 	})
 	shop_wind.cursor=1
 	
 	shop_wind.confirm=function()
-		local price=shop_wind.cursor==1
-			and 15 or 40
+		local price=shop_prices[
+			shop_wind.cursor
+		]
 
 		if gold<price then
 			return show_msg(
-				"not enough gold!",80
+				"not enough gold!",60
 			)
 		end
 		
@@ -1271,14 +1300,11 @@ function show_shop()
 			gold_wind:close()
 			show_gold()
 			
-			if shop_wind.cursor==1 then
-				heal_mob(plyr,1)
-				show_msg("heals 1 hp!",80)
-			else
-				sfx(51)
-				plyr.max_hp+=1
-				show_msg("hp upgrade!",80)
-			end
+			shop_buy_events[
+				shop_wind.cursor
+			]()
+			
+			shop_wind:close()
 		end
 	end
 	shop_wind.cancel=function()
@@ -1522,6 +1548,7 @@ function add_mob(typ,x,y)
 		hp=mob_hp[typ],
 		max_hp=mob_hp[typ],
 		atk=mob_atk[typ],
+		base_atk=1,
 		defmin=0,
 		defmax=0,
 		bless=0,
