@@ -26,7 +26,9 @@ function start_game()
 		jump=0,
 		in_ground=true,
 		spr=1,
-		flip=false
+		flip=false,
+		-- clock wise: 1 2 3 4
+		walk_dir=2
 	}
 end
 -->8
@@ -99,6 +101,13 @@ function draw_game()
 		" y:"..plyr.map_y,
 		60,
 		10,
+		8
+	)
+	rect(
+		plyr.map_x*8,
+		plyr.map_y*8,
+		plyr.map_x*8+1,
+		plyr.map_y*8+1,
 		8
 	)
 end
