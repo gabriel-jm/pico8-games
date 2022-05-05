@@ -2,7 +2,14 @@ pico-8 cartridge // http://www.pico-8.com
 version 34
 __lua__
 function _init()
+	map_start_x=0
 	debug=nil
+	blocks=nil
+	dirs=[
+		split"-1,0,1,0",
+		split"0,-1,0,1"
+	]
+	
 	_upd=update_game
 	_drw=draw_game
 	start_game()
@@ -29,9 +36,7 @@ function start_game()
 		jump=0,
 		in_ground=true,
 		spr=1,
-		flip=false,
-		-- clock wise: 1 2 3 4
-		walk_dir=2
+		flip=false
 	}
 end
 -->8
@@ -46,6 +51,18 @@ end
 
 function update_game()
 	local speed=plyr.speed
+	local walk_dir=[0,0]
+	
+	if not blocks then
+		blocks={}
+		for x=0,15 do
+			for y=0,15 do
+				if fget(mget(x,y),0) then
+					add(blocks,{x=x,y=y})
+				end
+			end
+		end
+	end
 	
 	if frames>3000 then
 		frames=-1
@@ -57,37 +74,36 @@ function update_game()
 		plyr.x+=speed
 		plyr.flip=false
 		plyr.map_x=flr(plyr.x/8)
+		walk_dir=[1,0]
 	end
 	if btnp(⬅️) then
 		plyr.x-=speed
 		plyr.flip=true
 		plyr.map_x=flr(plyr.x/8)
+		walk_dir=[-1,0]
 	end
 	if btnp(⬆️) then
 		plyr.y-=speed
 		plyr.map_y=flr(plyr.y/8)
+		walk_dir=[0,-1]
 	end
 	if btnp(⬇️) then
 		plyr.y+=speed
 		plyr.map_y=flr(plyr.y/8)
+		walk_dir=[0,1]
 	end
-	
---	for x=0,128 do
---		for y=0,128 do
---	if fget(
---		mget(plyr.x/8,plyr.y/8),1
---	) then
---		debug=verify_collision(
---			plyr,{x=plyr.x+1,y=plyr.y+1,w=8,h=8}
---		)
---	end
---		end
---	end
 
-	debug=mget(
-		(plyr.x+plyr.w/2)/8,
-		(plyr.y+plyr.h/2)/8
-	)
+	foreach(blocks,function(b)
+		if verify_collision(
+			plyr,{
+				x=b.x*8,
+				y=b.y*8,
+				w=8,
+				h=8
+		}) then
+			
+		end
+	end)
 end
 
 function verify_collision(
@@ -120,6 +136,17 @@ function draw_game()
 	cls()
 	map()
 	
+--	if not blocks then
+--		blocks={}
+--		for x=0,15 do
+--			for y=0,15 do
+--				if fget(mget(x,y),1) then
+--					add(blocks,{x=x,y=y})
+--				end
+--			end
+--		end
+--	end
+	
 	print(debug)
 	
 	palt(0,false)
@@ -147,6 +174,12 @@ function draw_game()
 		plyr.map_y*8+1,
 		8
 	)
+	foreach(blocks,function(b)
+		rect(
+			b.x*8,b.y*8,
+			b.x*8+8,b.y*8+8,8
+		)
+	end)
 end
 __gfx__
 00000000000000000088000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
