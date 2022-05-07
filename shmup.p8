@@ -4,6 +4,9 @@ __lua__
 function _init()
 	x=64
 	y=64
+	sx=0
+	sy=0
+	speed=1
 end
 
 function _draw()
@@ -12,10 +15,18 @@ function _draw()
 end
 
 function _update()
-	if (btnp(⬆️)) y-=1
-	if (btnp(⬇️)) y+=1
-	if (btnp(➡️)) x+=1
-	if (btnp(⬅️)) x-=1
+	sx,sy=0,0
+	
+	if (btn(⬅️)) sx=-speed
+	if (btn(➡️)) sx=speed
+	if (btn(⬆️)) sy=-speed
+	if (btn(⬇️)) sy=speed
+	
+	x+=sx
+	y+=sy
+	
+	x=mid(0,x,127-8)
+	y=mid(0,y,127-8)
 end
 __gfx__
 00000000000220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
