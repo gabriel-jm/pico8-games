@@ -8,15 +8,26 @@ function _init()
 	ship_sy=0
 	
 	bullets={}
+	
+	stars_x={}
+	stars_y={}
+	
+	for i=1,50 do
+		add(stars_x,flr(rnd(128)))
+		add(stars_y,flr(rnd(128)))
+	end
 end
 
 function _draw()
 	cls()
+	
+	create_starfield()
+	
 	spr(1,ship_x,ship_y)
+	
 	foreach(bullets,function(b)
 		spr(2,b.x,b.y)
 	end)
-	print(#bullets)
 end
 
 function _update()
@@ -48,6 +59,16 @@ function _update()
 		if bullets[i].y<0 then
 			del(bullets,bullets[i])
 		end
+	end
+end
+-->8
+function create_starfield()
+	for i=1,#stars_x do
+		pset(
+			stars_x[i],
+			stars_y[i],
+			7
+		)
 	end
 end
 __gfx__
