@@ -9,12 +9,13 @@ function _init()
 	
 	bullets={}
 	
-	stars_x={}
-	stars_y={}
-	
-	for i=1,50 do
-		add(stars_x,flr(rnd(128)))
-		add(stars_y,flr(rnd(128)))
+	stars={}
+	for i=1,100 do
+		add(stars,{
+			x=flr(rnd(128)),
+			y=flr(rnd(128)),
+			spd=rnd(1.5)+0.5
+		})
 	end
 end
 
@@ -60,16 +61,40 @@ function _update()
 			del(bullets,bullets[i])
 		end
 	end
+	
+	update_stars()
 end
 -->8
 function create_starfield()
-	for i=1,#stars_x do
+	foreach(stars,function(s)
 		pset(
-			stars_x[i],
-			stars_y[i],
-			7
+			s.x,
+			s.y,
+			get_star_col(s.spd)
 		)
+	end)
+end
+
+function get_star_col(spd)
+	if spd<1 then
+		return 1
 	end
+	
+	if spd<1.5 then
+		return 13
+	end
+
+	return 6
+end
+
+function update_stars()
+	foreach(stars,function(s)
+		s.y+=s.spd
+		
+		if s.y>127 then
+			s.y=-1
+		end
+	end)
 end
 __gfx__
 00000000000220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
