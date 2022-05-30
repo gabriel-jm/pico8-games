@@ -1,9 +1,13 @@
 pico-8 cartridge // http://www.pico-8.com
 version 34
 __lua__
+-- init
+
 function _init()
  upd=update_start
  drw=draw_start
+ 
+ blinkt=1
 end
 
 function _draw()
@@ -11,6 +15,7 @@ function _draw()
 end
 
 function _update()
+	blinkt+=1
 	upd()
 end
 
@@ -41,6 +46,8 @@ function startgame()
 	end
 end
 -->8
+-- tools
+
 function create_starfield()
 	foreach(stars,function(s)
 		pset(
@@ -71,6 +78,13 @@ function update_stars()
 			s.y=-1
 		end
 	end)
+end
+
+function blink()
+	local blink_colors=split"5,6,7,6,5"
+	return blink_colors[
+		flr((blinkt/7)%5+1)
+	]
 end
 -->8
 -- update
@@ -141,7 +155,7 @@ function draw_start()
 		"press any key to start",
 		20,
 		80,
-		7
+		blink()
 	)
 end
 
