@@ -2,6 +2,22 @@ pico-8 cartridge // http://www.pico-8.com
 version 34
 __lua__
 function _init()
+ upd=update_start
+ drw=draw_start
+end
+
+function _draw()
+	drw()
+end
+
+function _update()
+	upd()
+end
+
+function startgame()
+	upd=update_game
+	drw=draw_game
+	
 	ship_x=64
 	ship_y=64
 	ship_sx=0
@@ -14,28 +30,58 @@ function _init()
 	bullet_spr=16
 	
 	muzzle=0
+	
+	stars={}
+	for i=1,100 do
+		add(stars,{
+			x=flr(rnd(128)),
+			y=flr(rnd(128)),
+			spd=rnd(1.5)+0.5
+		})
+	end
+end
+-->8
+function create_starfield()
+	foreach(stars,function(s)
+		pset(
+			s.x,
+			s.y,
+			get_star_col(s.spd)
+		)
+	end)
 end
 
-function _draw()
-	cls()
-	spr(ship_spr,ship_x,ship_y)
-	foreach(bullets,function(b)
-		spr(bullet_spr,b.x,b.y)
-	end)
-	spr(flame_spr,ship_x,ship_y+8)
-	print(#bullets)
+function get_star_col(spd)
+	if spd<1 then
+		return 1
+	end
 	
-	if muzzle>0 then
-		circfill(
-			ship_x+3,
-			ship_y-2,
-			muzzle,
-			7
-		)
+	if spd<1.5 then
+		return 13
+	end
+
+	return 6
+end
+
+function update_stars()
+	foreach(stars,function(s)
+		s.y+=s.spd
+		
+		if s.y>127 then
+			s.y=-1
+		end
+	end)
+end
+-->8
+-- update
+
+function update_start()
+	if btnp(4) or btnp(5) then
+		startgame()
 	end
 end
 
-function _update()
+function update_game()
 	ship_sx,ship_sy,ship_spr=0,0,2
 	
 	if btn(⬅️) then
@@ -78,6 +124,46 @@ function _update()
 	
 	ship_x=mid(0,ship_x,127-8)
 	ship_y=mid(0,ship_y,127-8)
+	update_stars()
+end
+-->8
+-- draw
+
+function draw_start()
+	cls(1)
+	print(
+		"shoot them up!",
+		36,
+		40,
+		7
+	)
+	print(
+		"press any key to start",
+		20,
+		80,
+		7
+	)
+end
+
+function draw_game()
+	cls()
+	create_starfield()
+	
+	spr(ship_spr,ship_x,ship_y)
+	spr(flame_spr,ship_x,ship_y+8)
+	
+	foreach(bullets,function(b)
+		spr(bullet_spr,b.x,b.y)
+	end)
+	
+	if muzzle>0 then
+		circfill(
+			ship_x+3,
+			ship_y-2,
+			muzzle,
+			7
+		)
+	end
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
