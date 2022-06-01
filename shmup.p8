@@ -123,7 +123,7 @@ function update_game()
 	foreach(bullets,function(b)
 		b.y-=4
 		
-		if b.y<0 then
+		if b.y<-4 then
 			del(bullets,b)
 		end
 	end)
