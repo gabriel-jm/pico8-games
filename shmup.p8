@@ -29,6 +29,8 @@ function startgame()
 		sy=0,
 		spr=2
 	}
+	
+	lives=5
 		
 	flame_spr=5
 	
@@ -96,6 +98,15 @@ function blink()
 		flr((blinkt/7)%5+1)
 	]
 end
+
+function has_collision(a,b)
+	if (a.y>b.y+7) return false
+	if (b.y>a.y+7) return false
+	if (a.x>b.x+7) return false
+	if (b.x>a.x+7) return false
+	
+	return true
+end
 -->8
 -- update
 
@@ -139,20 +150,26 @@ function update_game()
 		if e.y>128 then
 			del(enemies,e)
 		end
+		
+		if has_collision(e,ship) then
+			lives-=1
+			sfx(1)
+			del(enemies,e)
+		end
 	end)
 	
 	ship.x+=ship.sx
 	ship.y+=ship.sy
 	
+	ship.x=mid(0,ship.x,127-8)
+	ship.y=mid(0,ship.y,127-8)
+	
 	foreach(bullets,function(b)
 		b.y-=4
 		
 		foreach(enemies,function(e)
-			if
-				b.x+8>e.x
-				and b.x<e.x+8
-				and b.y+4<e.y+8
-			then
+			if has_collision(e,b) then
+				sfx(1)
 				del(enemies,e)
 				del(bullets,b)
 			end
@@ -170,9 +187,6 @@ function update_game()
 	end
 	
 	muzzle=max(0,muzzle-1)
-	
-	ship.x=mid(0,ship.x,127-8)
-	ship.y=mid(0,ship.y,127-8)
 	
 	update_stars()
 end
@@ -213,6 +227,7 @@ function draw_game()
 			7
 		)
 	end
+	print(lives)
 end
 
 function draw_sprites(list)
@@ -241,3 +256,4 @@ __gfx__
 00000000000000000000000000000000000000000300003033000033300000030330033000000000000000000000000000000000000000000000000000000000
 __sfx__
 0001000035540305402855024550205501c550185501555011550105500e5500c5500954007530055200152000510000000000000000000000000000000000000000000000000000000000000000000000000000
+00010000316502d64029640226401b650176501464011640106300f6200d6200b6200962007620076100561004610036100261000010000000000000000000000000000000000000000000000000000000000000

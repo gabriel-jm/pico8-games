@@ -7,3 +7,7 @@ function create_bullet(x, y)
     end
   }
 end
+
+function update_bullet()
+  
+end

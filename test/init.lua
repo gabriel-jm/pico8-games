@@ -1,10 +1,24 @@
+-- init
+
 function _init()
+  upd=update_game
+  drw=draw_game
+
   ship = {
     x = 64,
     y = 64,
     sx = 0,
     sy = 0,
   }
+
+  stars={}
+  for i=1,100 do
+    add(stars, {
+      x=flr(rnd(128)),
+      y=flr(rnd(128)),
+      spr=rnd(1.5)+0.5
+    })
+  end
 end
 
 function _draw()
