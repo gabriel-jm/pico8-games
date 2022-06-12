@@ -7,6 +7,7 @@ function _init()
  upd=update_start
  drw=draw_start
  
+ t=0
  blinkt=1
 end
 
@@ -15,6 +16,7 @@ function _draw()
 end
 
 function _update()
+	t+=1
 	blinkt+=1
 	upd()
 end
@@ -22,6 +24,8 @@ end
 function startgame()
 	upd=update_game
 	drw=draw_game
+	t=0
+	
 	ship={
 		x=64,
 		y=64,
@@ -31,12 +35,13 @@ function startgame()
 	}
 	
 	lives=4
-		
+	invul=0
+	muzzle=0
+	
 	flame_spr=5
 	
 	bullets={}
-	
-	muzzle=0
+	bullet_timer=0
 	
 	stars={}
 	for i=1,100 do
@@ -48,14 +53,7 @@ function startgame()
 	end
 	
 	enemies={}
-	
-	for i=1,10 do
-		add(enemies,{
-			x=rnd(110)+10,
-			y=rnd(5)-(rnd(40)+40),
-			spr=21
-		})
-	end
+	spawn_enemy()
 end
 -->8
 -- tools
@@ -107,6 +105,14 @@ function has_collision(a,b)
 	
 	return true
 end
+
+function spawn_enemy()
+	add(enemies,{
+		x=rnd(110)+10,
+		y=rnd(5)-(rnd(20)+10),
+		spr=21
+	})
+end
 -->8
 -- update
 
@@ -129,15 +135,39 @@ function update_game()
 	end
 	if (btn(⬆️)) ship.sy=-2
 	if (btn(⬇️)) ship.sy=2
-	if btnp(🅾️) then
-		add(bullets,{
-			x=ship.x,
-			y=ship.y-4,
-			spr=16
-		})
-		sfx(0)
-		muzzle=6
+	if btn(🅾️) then
+		if bullet_timer<=0 then
+			add(bullets,{
+				x=ship.x,
+				y=ship.y-4,
+				spr=16
+			})
+			sfx(0)
+			muzzle=6
+			bullet_timer=4
+		end
 	end
+	
+	bullet_timer-=1
+	
+	foreach(bullets,function(b)
+		b.y-=4
+		
+		foreach(enemies,function(e)
+			if has_collision(e,b) then
+				sfx(1)
+				del(enemies,e)
+				del(bullets,b)
+				spawn_enemy()
+			end
+		end)
+		
+		if b.y<-4 then
+			del(bullets,b)
+		end
+	end)
+	
+	invul=max(0,invul-1)
 	
 	foreach(enemies,function(e)
 		e.y+=1
@@ -149,12 +179,16 @@ function update_game()
 		
 		if e.y>128 then
 			del(enemies,e)
+			spawn_enemy()
 		end
 		
-		if has_collision(e,ship) then
+		if
+			invul==0
+		 and has_collision(e,ship)
+		then
 			lives-=1
+			invul=60
 			sfx(1)
-			del(enemies,e)
 		end
 	end)
 	
@@ -163,22 +197,6 @@ function update_game()
 	
 	ship.x=mid(0,ship.x,127-8)
 	ship.y=mid(0,ship.y,127-8)
-	
-	foreach(bullets,function(b)
-		b.y-=4
-		
-		foreach(enemies,function(e)
-			if has_collision(e,b) then
-				sfx(1)
-				del(enemies,e)
-				del(bullets,b)
-			end
-		end)
-		
-		if b.y<-4 then
-			del(bullets,b)
-		end
-	end)
 	
 	flame_spr+=1
 	
@@ -218,8 +236,13 @@ function draw_game()
 	cls()
 	create_starfield()
 	
-	draw_sprite(ship)
-	spr(flame_spr,ship.x,ship.y+8)
+	if
+		invul<=0
+		or sin(t/5)<0.1
+	then
+		draw_sprite(ship)
+		spr(flame_spr,ship.x,ship.y+8)
+	end
 	
 	draw_sprites(enemies)	
 	draw_sprites(bullets)
