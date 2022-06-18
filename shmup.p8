@@ -56,6 +56,8 @@ function startgame()
 	spawn_enemy()
 	
 	explosions={}
+	
+	particles={}
 end
 -->8
 -- tools
@@ -119,11 +121,27 @@ function spawn_enemy()
 end
 
 function explode(x,y)
-	add(explosions,{
+	add(particles,{
 		x=x,
 		y=y,
-		age=1
+		sx=0,
+		sy=0,
+		age=0,
+		size=10,
+		max_age=0
 	})
+
+	for i=1,30 do
+		add(particles,{
+			x=x,
+			y=y,
+			sx=(rnd()-0.5)*6,
+			sy=(rnd()-0.5)*6,
+			age=rnd(2),
+			size=1+rnd(4),
+			max_age=10+rnd(10)
+		})
+	end
 end
 -->8
 -- update
@@ -176,7 +194,7 @@ function update_game()
 					sfx(1)
 					del(enemies,e)
 					spawn_enemy()
-					explode(e.x,e.y)
+					explode(e.x+4,e.y+4)
 				end
 			end
 		end)
@@ -287,18 +305,44 @@ function draw_game()
 		)
 	end
 	
-	local ex_frames=split[[
-		64,66,68,68,70,72
-	]]
-	foreach(explosions,function(e)
-		local ex_spr=ex_frames[
-			flr(e.age)
-		]
-		spr(ex_spr,e.x-4,e.y-4,2,2)
+	foreach(particles,function(p)
+		local p_color=7
 		
-		e.age+=0.5
-		if e.age>=#ex_frames+1 then
-			del(explosions,e)
+		if p.age>5 then
+			p_color=10
+		end
+		if p.age>7 then
+			p_color=9
+		end
+		if p.age>10 then
+			p_color=8
+		end
+		if p.age>12 then
+			p_color=2
+		end
+		if p.age>15 then
+			p_color=5
+		end
+		
+		circfill(
+			p.x,
+			p.y,
+			p.size,
+			p_color
+		)
+		p.x+=p.sx
+		p.y+=p.sy
+		p.age+=1
+		
+		p.sx*=0.85
+		p.sy*=0.85
+		
+		if p.age>p.max_age then
+			p.size-=0.5
+		end
+		
+		if p.size<0 then
+			del(particles,p)
 		end
 	end)
 	
