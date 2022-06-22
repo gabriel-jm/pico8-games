@@ -120,7 +120,7 @@ function spawn_enemy()
 	})
 end
 
-function explode(x,y)
+function explode(x,y,is_blue)
 	add(particles,{
 		x=x,
 		y=y,
@@ -128,7 +128,8 @@ function explode(x,y)
 		sy=0,
 		age=0,
 		size=10,
-		max_age=0
+		max_age=0,
+		blue=is_blue
 	})
 
 	for i=1,30 do
@@ -139,8 +140,29 @@ function explode(x,y)
 			sy=(rnd()-0.5)*6,
 			age=rnd(2),
 			size=1+rnd(4),
-			max_age=10+rnd(10)
+			max_age=10+rnd(10),
+			blue=is_blue
 		})
+	end
+end
+
+age_colors={
+	{15,5},
+	{12,2},
+	{10,8},
+	{7,9},
+	{5,10},
+	{0,7}
+}
+function age_particle(age,is_blue)
+	if (is_blue) return 12
+	
+	for
+		age_col in all(age_colors)
+	do
+		if age>age_col[1] then
+			return age_col[2]
+		end
 	end
 end
 -->8
@@ -223,6 +245,7 @@ function update_game()
 			invul==0
 		 and has_collision(e,ship)
 		then
+			explode(ship.x+4,ship.y+4)
 			lives-=1
 			invul=60
 			sfx(1)
@@ -306,23 +329,9 @@ function draw_game()
 	end
 	
 	foreach(particles,function(p)
-		local p_color=7
-		
-		if p.age>5 then
-			p_color=10
-		end
-		if p.age>7 then
-			p_color=9
-		end
-		if p.age>10 then
-			p_color=8
-		end
-		if p.age>12 then
-			p_color=2
-		end
-		if p.age>15 then
-			p_color=5
-		end
+		local p_color=age_particle(
+			p.age,p.blue
+		)
 		
 		circfill(
 			p.x,
