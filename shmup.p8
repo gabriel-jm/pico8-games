@@ -57,6 +57,8 @@ function startgame()
 	
 	explosions={}
 	
+	shock_waves={}
+	
 	particles={}
 end
 -->8
@@ -144,9 +146,37 @@ function explode(x,y,is_blue)
 			blue=is_blue
 		})
 	end
+	
+	for i=1,20 do
+		add(particles,{
+			x=x,
+			y=y,
+			sx=(rnd()-0.5)*10,
+			sy=(rnd()-0.5)*10,
+			age=rnd(2),
+			size=1+rnd(4),
+			max_age=10+rnd(10),
+			spark=true
+		})
+	end
+	
+	big_shwave(x,y)
 end
 
-age_colors={
+function small_sparks(x,y)
+	add(particles,{
+		x=x,
+		y=y,
+		sx=(rnd()-0.5)*8,
+		sy=(rnd()-1)*3,
+		age=rnd(2),
+		size=1+rnd(4),
+		max_age=10+rnd(10),
+		spark=true
+	})
+end
+
+red_age_colors={
 	{15,5},
 	{12,2},
 	{10,8},
@@ -154,8 +184,21 @@ age_colors={
 	{5,10},
 	{0,7}
 }
-function age_particle(age,is_blue)
-	if (is_blue) return 12
+
+blue_age_colors={
+	{12,1},
+	{10,13},
+	{7,12},
+	{5,6},
+	{0,7}
+}
+function age_particle(
+	age,
+	is_blue
+)
+	local age_colors=is_blue
+		and blue_age_colors
+		or red_age_colors
 	
 	for
 		age_col in all(age_colors)
@@ -164,6 +207,28 @@ function age_particle(age,is_blue)
 			return age_col[2]
 		end
 	end
+end
+
+function small_shwave(x,y)
+	add(shock_waves,{
+		x=x,
+		y=y,
+		color=9,
+		r=3,
+		speed=1,
+		target_r=6
+	})
+end
+
+function big_shwave(x,y)
+	add(shock_waves,{
+		x=x,
+		y=y,
+		color=7,
+		r=3,
+		speed=3.5,
+		target_r=25
+	})
 end
 -->8
 -- update
@@ -211,6 +276,8 @@ function update_game()
 				e.hp-=1
 				sfx(3)
 				e.flash=2
+				small_sparks(b.x+4,b.y+4)
+				small_shwave(b.x+4,b.y+4)
 				
 				if e.hp<=0 then
 					sfx(1)
@@ -245,7 +312,11 @@ function update_game()
 			invul==0
 		 and has_collision(e,ship)
 		then
-			explode(ship.x+4,ship.y+4)
+			explode(
+				ship.x+4,
+				ship.y+4,
+				true
+			)
 			lives-=1
 			invul=60
 			sfx(1)
@@ -265,8 +336,6 @@ function update_game()
 	end
 	
 	muzzle=max(0,muzzle-1)
-	
-	
 	
 	update_stars()
 	
@@ -317,6 +386,7 @@ function draw_game()
 		draw_sprite(e)
 		pal()
 	end)
+
 	draw_sprites(bullets)
 	
 	if muzzle>0 then
@@ -328,17 +398,31 @@ function draw_game()
 		)
 	end
 	
+	foreach(shock_waves,function(s)
+		circ(s.x,s.y,s.r,s.color)
+		s.r+=s.speed
+		
+		if s.r>s.target_r then
+			del(shock_waves,s)
+		end
+	end)
+	
 	foreach(particles,function(p)
 		local p_color=age_particle(
 			p.age,p.blue
 		)
 		
-		circfill(
-			p.x,
-			p.y,
-			p.size,
-			p_color
-		)
+		if p.spark then
+			pset(p.x,p.y,7)
+		else
+			circfill(
+				p.x,
+				p.y,
+				p.size,
+				p_color
+			)
+		end
+		
 		p.x+=p.sx
 		p.y+=p.sy
 		p.age+=1
