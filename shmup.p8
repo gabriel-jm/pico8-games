@@ -4,11 +4,18 @@ __lua__
 -- init
 
 function _init()
- upd=update_start
- drw=draw_start
- 
  t=0
  blinkt=1
+ 
+ modes={
+ 	start={update_start,draw_start},
+ 	game={update_game,draw_game},
+ 	wave_text={update_wave_text,draw_wave_text},
+ 	gameover={update_gameover,draw_gameover},
+ 	win={update_win,draw_win}
+ }
+ 
+ mode("start")
 end
 
 function _draw()
@@ -22,9 +29,9 @@ function _update()
 end
 
 function startgame()
-	upd=update_game
- drw=draw_game
 	t=0
+	wave=0
+	next_wave()
 	
 	ship={
 		x=64,
@@ -53,13 +60,18 @@ function startgame()
 	end
 	
 	enemies={}
-	spawn_enemy()
 	
 	explosions={}
 	
 	shock_waves={}
 	
 	particles={}
+end
+
+function mode(target_mode)
+	upd,drw=unpack(
+		modes[target_mode]
+	)
 end
 -->8
 -- tools
@@ -234,8 +246,17 @@ end
 -- update
 
 function update_start()
-	if btnp(4) or btnp(5) then
+	if not btn(4)
+		and not btn(5)
+	then
+		btn_released=true
+	end
+	
+	if btn_released and
+		(btnp(4) or btnp(5))
+	then
 		startgame()
+		btn_released=false
 	end
 end
 
@@ -282,8 +303,11 @@ function update_game()
 				if e.hp<=0 then
 					sfx(1)
 					del(enemies,e)
-					spawn_enemy()
 					explode(e.x+4,e.y+4)
+					
+					if #enemies==0 then
+						next_wave()
+					end
 				end
 			end
 		end)
@@ -340,10 +364,36 @@ function update_game()
 	update_stars()
 	
 	if lives<=0 then
-		upd=update_start
-		drw=draw_gameover
+		mode("gameover")
 	end
 end
+
+function update_wave_text()
+	update_game()
+	wavetime-=1
+	
+	if wavetime<=0 then
+		mode("game")
+		spawn_wave()
+	end
+end
+
+function update_gameover()
+	if not btn(4)
+		and not btn(5)
+	then
+		btn_released=true
+	end
+	
+	if btn_released and
+		(btnp(4) or btnp(5))
+	then
+		mode("start")
+		btn_released=false
+	end
+end
+
+update_win=update_gameover
 -->8
 -- draw
 
@@ -470,6 +520,49 @@ function draw_gameover()
 		80,
 		blink()
 	)
+end
+
+function draw_wave_text()
+	draw_game()
+	print(
+		"wave "..wave,
+		56,
+		40,
+		blink()
+	)
+end
+
+function draw_win()
+	cls(11)
+	print(
+		"congratulations",
+		40,
+		40,
+		7
+	)
+	print(
+		"press any key to restart",
+		20,
+		80,
+		blink()
+	)
+end
+-->8
+-- waves and enemies
+
+function spawn_wave()
+	spawn_enemy()
+end
+
+function next_wave()
+	wave+=1
+	
+	if wave>4 then
+		return mode("win")
+	end
+	
+	mode("wave_text")
+	wavetime=80
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
