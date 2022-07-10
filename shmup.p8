@@ -6,13 +6,24 @@ __lua__
 enemy_types={
 	{ -- green alien
 		hp=5,
-		spr=21
+		spr=21,
+		ani=split"21,22,23,24"
 	},
 	{ -- red flame guy
+		hp=5,
+		spr=148,
+		ani=split"148,149"
 	},
 	{ -- spinning ship
+		hp=5,
+		spr=184,
+		ani=split"184,185,186,187"
 	},
 	{ -- boss
+		hp=5,
+		spr=208,
+		ani=split"208,210",
+		spr_width=2
 	}
 }
 
@@ -331,11 +342,21 @@ function update_game()
 	
 	foreach(enemies,function(e)
 		e.y+=1
+		e.ani_frame+=0.4
 		
-		e.spr+=0.4
-		if e.spr>=25 then
-			e.spr=21
+		if 
+			flr(e.ani_frame) > #e.ani
+		then
+			e.ani_frame=1
 		end
+		
+		e.spr=e.ani[
+			flr(e.ani_frame)
+		]
+--		e.spr+=0.4
+--		if e.spr>=25 then
+--			e.spr=21
+--		end
 		
 		if e.y>128 then
 			del(enemies,e)
@@ -517,7 +538,14 @@ function draw_sprites(list)
 end
 
 function draw_sprite(item)
-	spr(item.spr,item.x,item.y)
+	local sprw=item.spr_width or 1
+	spr(
+		item.spr,
+		item.x,
+		item.y,
+		sprw,
+		sprw
+	)
 end
 
 function draw_gameover()
@@ -573,12 +601,15 @@ function spawn_enemy(t)
 		y=-(rnd(10)+10),
 		flash=0,
 		hp=stats.hp,
-		spr=stats.spr
+		spr=stats.spr,
+		spr_width=stats.spr_width,
+		ani=stats.ani,
+		ani_frame=1
 	})
 end
 
 function spawn_wave()
-	spawn_enemy()
+	spawn_enemy(wave)
 end
 
 function next_wave()
