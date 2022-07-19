@@ -54,12 +54,11 @@ end
 
 function start_screen()
 	mode("start")
-	music(1)
+	music(7)
 end
 
 function startgame()
-	music(-1,1000)
-
+--	music(-1,1000)
 	t=0
 	wave=0
 	next_wave()
@@ -616,8 +615,11 @@ function next_wave()
 	wave+=1
 	
 	if wave>4 then
+		music(4)
 		return mode("win")
 	end
+	
+	music(wave==1 and 0 or 3)
 	
 	mode("wave_text")
 	wavetime=80
