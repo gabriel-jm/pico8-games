@@ -3,9 +3,8 @@ version 34
 __lua__
 -- initialization
 
+s=split
 function _init()
-	local s=split
-
 	-- directions
 	dirs_x=s"-1,1,0,0,1,1,-1,-1"
 	dirs_y=s"0,0,-1,1,-1,1,1,-1"
@@ -117,8 +116,8 @@ function startgame()
 	st_killer=""
 	
 	food_names()
-	gen_floor(0)	
-	
+	gen_floor(0)
+		
 	food_effects={
 		function(mob)
 			heal_mob(mob,1)
@@ -199,6 +198,8 @@ function menu_action(wnd)
 	end
 	wnd.cursor=
 		(wnd.cursor-1)%#wnd.text+1
+
+	if (wnd.on_move) wnd:on_move()
 		
 	return has_moved
 end
@@ -1119,6 +1120,25 @@ end
 -->8
 -- ui
 
+item_type_name={
+	wep="weapon",
+	arm="armor",
+	fud="food",
+	thr="throwable"
+}
+-- 7435
+item_type_value={
+	wep=8,
+	arm=8,
+	fud=4,
+	thr=6,
+	from_inv=function(pos)
+		return item_type_value[
+			item_type[inv[pos]]
+		]
+	end
+}
+
 function add_window(
 	x,y,width,height,txt
 )
@@ -1243,7 +1263,8 @@ end
 
 function upd_hp_box()
 	hp_box.text[1]=
-		"♥"..plyr.hp.."/"..plyr.max_hp
+		"♥"..plyr.hp.."/"
+		..plyr.max_hp
 	local y=5
 	if plyr.y<8 then
 		y=110
@@ -1251,7 +1272,7 @@ function upd_hp_box()
 	hp_box.y+=(y-hp_box.y)/5
 end
 
-shop_prices=split"15,30,30"
+shop_prices=s"15,30,30"
 shop_buy_events={
 	function()
 		heal_mob(plyr,1)
@@ -1268,26 +1289,138 @@ shop_buy_events={
 		sfx(51)
 		plyr.base_atk+=1
 		show_msg("base atk upgrade",60)
+	end,
+	function()
+		shop_wind:set_state(
+			shop_sell_state
+		)
 	end
 }
 
-function show_shop()
-	del(windows,shop_wind)
-	shop_wind=add_window(
-		26,40,74,26,{
+h_by_item_amount=s"13,19,25,31"
+
+shop_sell_state={
+	enter=function()
+		shop_title.text[2]="[selling]"
+		shop_wind.height=49
+	
+		shop_wind:on_move()
+	end,
+	
+	on_move=function()
+		show_gold()
+		shop_wind.text={}
+
+		for i=1,6 do
+			add(
+				shop_wind.text,
+				inv[i]
+					and item_name[inv[i]]
+					or "..."
+			)
+		end
+		
+		add(shop_wind.text,"[back]")
+		
+		if sell_item_wind then
+			sell_item_wind:close()
+		end
+		
+		if inv[shop_wind.cursor] then
+			sell_item_wind=add_window(
+				26,shop_wind.height+39,
+				74,13,{
+					"sell price: "..
+					item_type_value.from_inv(
+						shop_wind.cursor
+					)
+			})
+		end
+	end,
+	
+	confirm=function()
+		local cur=shop_wind.cursor
+		
+		if cur==7 then
+			return shop_wind:cancel()
+		end
+		
+		if inv[cur] then
+			show_sell_confirm(
+				function()
+					gold+=item_type_value
+						.from_inv(cur)
+					inv[cur]=nil
+				end
+			)
+		end
+	end,
+	
+	cancel=function()
+		shop_wind:set_state(
+			shop_buy_state
+		)
+		if sell_item_wind then
+			sell_item_wind:close()
+		end
+	end
+}
+
+function show_sell_confirm(
+	on_confirm
+)
+	del(windows,sell_confirm)
+	
+	sell_confirm=add_window(
+		80,40,43,19,
+		{"confirm","cancel"}
+	)
+	sell_confirm.cursor=1
+	
+	sell_confirm.confirm=function()
+		if sell_confirm.cursor==1 then
+			on_confirm()
+		end
+		
+		sell_confirm:cancel()
+	end
+	
+	sell_confirm.cancel=function()
+		sell_confirm:close()
+		actv_wind=shop_wind
+	end
+	
+	actv_wind=sell_confirm
+end
+
+shop_buy_state={
+	enter=function()
+		shop_title.text[2]="[buying]"
+		shop_wind.height=31
+		shop_wind.text={
 			"heals : "..shop_prices[1]..
 				" gold",
 			"hp up : "..shop_prices[2]..
 				" gold",
 			"atk up: "..shop_prices[3]..
-				" gold"
-	})
-	shop_wind.cursor=1
+				" gold",
+			"[sell items]"
+		}
+	end,
 	
-	shop_wind.confirm=function()
+	on_move=function()
+	end,
+	
+	confirm=function()
 		local price=shop_prices[
 			shop_wind.cursor
 		]
+		
+		if not price then
+			return shop_buy_events[
+				shop_wind.cursor
+			]()
+		end
 
 		if gold<price then
 			return show_msg(
@@ -1297,21 +1430,56 @@ function show_shop()
 		
 		if gold>=price then
 			gold=max(gold-price,0)
-			gold_wind:close()
 			show_gold()
 			
 			shop_buy_events[
 				shop_wind.cursor
 			]()
 			
-			shop_wind:close()
+			--shop_wind:cancel()
 		end
-	end
-	shop_wind.cancel=function()
+	end,
+	
+	cancel=function()
+		shop_title:close()
 		shop_wind:close()
 		gold_wind:close()
 		_upd=update_game
 	end
+}
+
+function show_shop()
+	del(windows,shop_wind)
+	shop_title=add_window(
+		26,21,74,19,{"power stone"}
+	)
+	shop_wind=add_window(
+		26,40,74,31
+	)
+	shop_wind.cursor=1
+	
+	shop_wind.set_state=function(
+		self,new_state
+	)
+		self.state=new_state
+		self.state:enter()
+	end
+	
+	shop_wind.on_move=function()
+		shop_wind.state:on_move()
+	end
+	
+	shop_wind.confirm=function()
+		shop_wind.state:confirm()
+	end
+	
+	shop_wind.cancel=function()
+		shop_wind.state:cancel()	
+	end
+	
+	shop_wind:set_state(
+		shop_buy_state
+	)
 	
 	show_gold()
 	
@@ -1486,13 +1654,6 @@ end
 function floor_msg()
 	show_msg("floor "..floor,120)
 end
-
-item_type_name={
-	wep="weapon",
-	arm="armor",
-	fud="food",
-	thr="throwable"
-}
 
 function show_hint()
 	if hint_wind then
@@ -1925,6 +2086,10 @@ function gen_floor(num)
 		st_steeps=0
 		poke(0x3101,66)
 	end
+	
+--	if floor>0 then
+--		return copy_map(48,0)
+--	end
 	
 	if floor==0 then
 		return copy_map(16,0)
