@@ -13,16 +13,16 @@ function _init()
 	
 	item_name=s"butter knife,cheese knife,paring knife,utility knife,chef's knife,meat cleaver,paper apron,cotton apron,rubber apron,leather apron,chef's apron,butcher's apron,food 1,food 2,food 3,food 4,food 5,food 6,spork,salad fork,fish fork,dinner fork"
 	item_type=s"wep,wep,wep,wep,wep,wep,arm,arm,arm,arm,arm,arm,fud,fud,fud,fud,fud,fud,thr,thr,thr,thr"
-	item_stat1=s"1,2,3,4,5,6,0,0,0,0,1,2,1,2,3,4,5,6,1,2,3,4"
-	item_stat2=s"0,0,0,0,0,0,1,2,3,4,3,3,0,0,0,0,0,0,0,0,0,0"
+	item_stat1=s"1,2,3,4,5,6,0,0,0,1,1,2,1,2,3,4,5,6,1,2,3,4"
+	item_stat2=s"0,0,0,0,0,0,1,2,3,3,4,3,0,0,0,0,0,0,0,0,0,0"
 	item_minf=s"1,2,4,5,7,8,1,2,3,4,5,6,1,1,1,1,1,1,1,2,4,5"
 	item_maxf=s"4,5,7,8,10,11,3,4,5,6,7,11,11,11,11,11,11,11,4,7,8,10"
 	item_desc=s",,,,,,,,,,,,heals,heals a lot,increases hp,stuns,is cursed,is blessed,,,,"
 	
 	mob_name=s"player,slime,melt,shoggoth,mantis-man,giant scorpion,ghost,golem,drake"
 	mob_sprs=s"240,192,196,200,204,208,212,216,220"
-	mob_atk=s"1,1,1,2,2,3,3,4,4"
-	mob_hp=s"5,1,2,3,3,4,5,14,8"
+	mob_atk=s"1,1,1,2,2,3,3,4,5"
+	mob_hp=s"6,1,2,3,3,4,5,14,8"
 	mob_los=s"4,4,4,4,4,4,4,4,4"
 	mob_minf=s"0,1,2,4,5,7,7,10,10"
 	mob_maxf=s"0,4,5,7,7,10,10,11,11"
@@ -93,7 +93,6 @@ function startgame()
 
 	-- player
 	plyr=add_mob(1,1,1)
---	plyr.max_hp=20
 	anim_timer=0
 	
 	mk_item_pool()
@@ -103,7 +102,7 @@ function startgame()
 	hp_box=add_window(
 		5,5,
 		plyr.max_hp<10 and 28 or 32,
-		13,{"♥5/5"}
+		13,{"♥"}
 	)
 
 	-- list of floating text
@@ -1126,7 +1125,7 @@ item_type_name={
 	fud="food",
 	thr="throwable"
 }
--- 7435
+
 item_type_value={
 	wep=8,
 	arm=8,
@@ -1272,7 +1271,7 @@ function upd_hp_box()
 	hp_box.y+=(y-hp_box.y)/5
 end
 
-shop_prices=s"15,30,30"
+shop_prices=s"15,25,25"
 shop_buy_events={
 	function()
 		heal_mob(plyr,1)
@@ -1346,13 +1345,11 @@ shop_sell_state={
 		end
 		
 		if inv[cur] then
-			show_sell_confirm(
-				function()
-					gold+=item_type_value
-						.from_inv(cur)
-					inv[cur]=nil
-				end
-			)
+			show_confirm(function()
+				gold+=item_type_value
+					.from_inv(cur)
+				inv[cur]=nil
+			end)
 		end
 	end,
 	
@@ -1366,31 +1363,31 @@ shop_sell_state={
 	end
 }
 
-function show_sell_confirm(
+function show_confirm(
 	on_confirm
 )
-	del(windows,sell_confirm)
+	del(windows,confirm_wind)
 	
-	sell_confirm=add_window(
+	confirm_wind=add_window(
 		80,40,43,19,
 		{"confirm","cancel"}
 	)
-	sell_confirm.cursor=1
+	confirm_wind.cursor=1
 	
-	sell_confirm.confirm=function()
-		if sell_confirm.cursor==1 then
+	function confirm_wind.confirm()
+		if confirm_wind.cursor==1 then
 			on_confirm()
 		end
 		
-		sell_confirm:cancel()
+		confirm_wind:cancel()
 	end
 	
-	sell_confirm.cancel=function()
-		sell_confirm:close()
+	function confirm_wind.cancel()
+		confirm_wind:close()
 		actv_wind=shop_wind
 	end
 	
-	actv_wind=sell_confirm
+	actv_wind=confirm_wind
 end
 
 shop_buy_state={
@@ -1428,16 +1425,16 @@ shop_buy_state={
 			)
 		end
 		
-		if gold>=price then
-			gold=max(gold-price,0)
-			show_gold()
-			
-			shop_buy_events[
-				shop_wind.cursor
-			]()
-			
-			--shop_wind:cancel()
-		end
+		show_confirm(function()
+			if gold>=price then
+				gold=max(gold-price,0)
+				show_gold()
+				
+				shop_buy_events[
+					shop_wind.cursor
+				]()
+			end
+		end)
 	end,
 	
 	cancel=function()
@@ -1450,6 +1447,7 @@ shop_buy_state={
 
 function show_shop()
 	del(windows,shop_wind)
+	
 	shop_title=add_window(
 		26,21,74,19,{"power stone"}
 	)
@@ -1457,23 +1455,23 @@ function show_shop()
 		26,40,74,31
 	)
 	shop_wind.cursor=1
-	
-	shop_wind.set_state=function(
+
+	function shop_wind.set_state(
 		self,new_state
 	)
 		self.state=new_state
 		self.state:enter()
 	end
 	
-	shop_wind.on_move=function()
+	function shop_wind.on_move()
 		shop_wind.state:on_move()
 	end
 	
-	shop_wind.confirm=function()
+	function shop_wind.confirm()
 		shop_wind.state:confirm()
 	end
 	
-	shop_wind.cancel=function()
+	function shop_wind.cancel()
 		shop_wind.state:cancel()	
 	end
 	
@@ -1548,9 +1546,9 @@ function show_inv()
 			"-"..plyr.defmax
 		}
 	)
-	
 	inv_wind.confirm=show_use
-	inv_wind.cancel=function()
+	
+	function inv_wind.cancel()
 		_upd=update_game
 		inv_wind:close()
 		stat_wind:close()
@@ -1582,7 +1580,9 @@ function show_use()
 	
 	foreach(
 		split(typ_map[typ]),
-		function(act) add(txt,act) end
+		function(act)
+			add(txt,act)
+		end
 	)
 	
 	add(txt,"trash")
@@ -1593,7 +1593,7 @@ function show_use()
 	use_menu.cursor=1
 	
 	use_menu.confirm=trigger_use
-	use_menu.cancel=function()
+	function use_menu.cancel()
 		use_menu:close()
 		actv_wind=inv_wind
 	end
@@ -1786,8 +1786,6 @@ function do_ai()
 	if moving then
 		_upd=update_ai_turn
 		anim_timer=0
---	else 
---		plyr.stun=false
 	end
 end
 
@@ -2086,10 +2084,6 @@ function gen_floor(num)
 		st_steeps=0
 		poke(0x3101,66)
 	end
-	
---	if floor>0 then
---		return copy_map(48,0)
---	end
 	
 	if floor==0 then
 		return copy_map(16,0)
