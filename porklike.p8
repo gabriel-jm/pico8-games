@@ -1130,16 +1130,18 @@ item_type_value={
 	wep=8,
 	arm=8,
 	fud=4,
-	thr=6,
-	from_inv=function(pos)
-		return item_type_value[
-			item_type[inv[pos]]
-		]
-	end
+	thr=6
 }
 
+function item_type_value
+	.from_inv(pos)
+	return item_type_value[
+		item_type[inv[pos]]
+	]
+end
+
 function add_window(
-	x,y,width,height,txt
+	x,y,width,height,txt,cur
 )
 	return add(windows,{
 		x=x,
@@ -1147,6 +1149,7 @@ function add_window(
 		width=width,
 		height=height,
 		text=txt,
+		cursor=cur or nil,
 		close=function(w)
 			w.dur=0
 		end
@@ -1298,70 +1301,70 @@ shop_buy_events={
 
 h_by_item_amount=s"13,19,25,31"
 
-shop_sell_state={
-	enter=function()
-		shop_title.text[2]="[selling]"
-		shop_wind.height=49
-	
-		shop_wind:on_move()
-	end,
-	
-	on_move=function()
-		show_gold()
-		shop_wind.text={}
+shop_sell_state={}
 
-		for i=1,6 do
-			add(
-				shop_wind.text,
-				inv[i]
-					and item_name[inv[i]]
-					or "..."
-			)
-		end
-		
-		add(shop_wind.text,"[back]")
-		
-		if sell_item_wind then
-			sell_item_wind:close()
-		end
-		
-		if inv[shop_wind.cursor] then
-			sell_item_wind=add_window(
-				26,shop_wind.height+39,
-				74,13,{
-					"sell price: "..
-					item_type_value.from_inv(
-						shop_wind.cursor
-					)
-			})
-		end
-	end,
-	
-	confirm=function()
-		local cur=shop_wind.cursor
-		
-		if cur==7 then
-			return shop_wind:cancel()
-		end
-		
-		if inv[cur] then
-			show_confirm(function()
-				gold+=item_type_value
-					.from_inv(cur)
-				inv[cur]=nil
-			end)
-		end
-	end,
-	
-	cancel=function()
-		shop_wind:set_state(
-			shop_buy_state
+function shop_sell_state.enter()
+	shop_title.text[2]="[selling]"
+	shop_wind.height=49
+
+	shop_wind:on_move()
+end
+
+function shop_sell_state.on_move()
+	show_gold()
+	shop_wind.text={}
+
+	for i=1,6 do
+		add(
+			shop_wind.text,
+			inv[i]
+				and item_name[inv[i]]
+				or "..."
 		)
-		if sell_item_wind then
-			sell_item_wind:close()
-		end
 	end
-}
+	
+	add(shop_wind.text,"[back]")
+	
+	if sell_item_wind then
+		sell_item_wind:close()
+	end
+	
+	if inv[shop_wind.cursor] then
+		sell_item_wind=add_window(
+			26,shop_wind.height+39,
+			74,13,{
+				"sell price: "..
+				item_type_value.from_inv(
+					shop_wind.cursor
+				)
+		})
+	end
+end
+
+function shop_sell_state.confirm()
+	local cur=shop_wind.cursor
+		
+	if cur==7 then
+		return shop_wind:cancel()
+	end
+	
+	if inv[cur] then
+		show_confirm(function()
+			gold+=item_type_value
+				.from_inv(cur)
+			inv[cur]=nil
+		end)
+	end
+end
+
+function shop_sell_state.cancel()
+	shop_wind:set_state(
+		shop_buy_state
+	)
+	if sell_item_wind then
+		sell_item_wind:close()
+	end
+end
 
 function show_confirm(
 	on_confirm
@@ -1370,9 +1373,9 @@ function show_confirm(
 	
 	confirm_wind=add_window(
 		80,40,43,19,
-		{"confirm","cancel"}
+		{"confirm","cancel"},
+		1
 	)
-	confirm_wind.cursor=1
 	
 	function confirm_wind.confirm()
 		if confirm_wind.cursor==1 then
@@ -1390,60 +1393,60 @@ function show_confirm(
 	actv_wind=confirm_wind
 end
 
-shop_buy_state={
-	enter=function()
-		shop_title.text[2]="[buying]"
-		shop_wind.height=31
-		shop_wind.text={
-			"heals : "..shop_prices[1]..
-				" gold",
-			"hp up : "..shop_prices[2]..
-				" gold",
-			"atk up: "..shop_prices[3]..
-				" gold",
-			"[sell items]"
-		}
-	end,
+shop_buy_state={}
+
+function shop_buy_state.enter()
+	shop_title.text[2]="[buying]"
+	shop_wind.height=31
+	shop_wind.text={
+		"heals : "..shop_prices[1]..
+			" gold",
+		"hp up : "..shop_prices[2]..
+			" gold",
+		"atk up: "..shop_prices[3]..
+			" gold",
+		"[sell items]"
+	}
+end
+
+function shop_buy_state.on_move()
+end
+
+function shop_buy_state.confirm()
+	local price=shop_prices[
+		shop_wind.cursor
+	]
 	
-	on_move=function()
-	end,
-	
-	confirm=function()
-		local price=shop_prices[
+	if not price then
+		return shop_buy_events[
 			shop_wind.cursor
-		]
-		
-		if not price then
-			return shop_buy_events[
+		]()
+	end
+
+	if gold<price then
+		return show_msg(
+			"not enough gold!",60
+		)
+	end
+	
+	show_confirm(function()
+		if gold>=price then
+			gold=max(gold-price,0)
+			show_gold()
+			
+			shop_buy_events[
 				shop_wind.cursor
 			]()
 		end
+	end)
+end
 
-		if gold<price then
-			return show_msg(
-				"not enough gold!",60
-			)
-		end
-		
-		show_confirm(function()
-			if gold>=price then
-				gold=max(gold-price,0)
-				show_gold()
-				
-				shop_buy_events[
-					shop_wind.cursor
-				]()
-			end
-		end)
-	end,
-	
-	cancel=function()
-		shop_title:close()
-		shop_wind:close()
-		gold_wind:close()
-		_upd=update_game
-	end
-}
+function shop_buy_state.cancel()
+	shop_title:close()
+	shop_wind:close()
+	gold_wind:close()
+	_upd=update_game
+end
 
 function show_shop()
 	del(windows,shop_wind)
@@ -1452,9 +1455,8 @@ function show_shop()
 		26,21,74,19,{"power stone"}
 	)
 	shop_wind=add_window(
-		26,40,74,31
+		26,40,74,31,{},1
 	)
-	shop_wind.cursor=1
 
 	function shop_wind.set_state(
 		self,new_state
@@ -1525,9 +1527,8 @@ function show_inv()
 
 	show_gold()
 	inv_wind=add_window(
-		5,17,84,62,txt
+		5,17,84,62,txt,3
 	)
-	inv_wind.cursor=3
 	inv_wind.col=col
 	
 	txt="ok    "
@@ -1588,9 +1589,8 @@ function show_use()
 	add(txt,"trash")
 
 	use_menu=add_window(
-		84,i*6+11,36,7+#txt*6,txt
+		84,i*6+11,36,7+#txt*6,txt,1
 	)
-	use_menu.cursor=1
 	
 	use_menu.confirm=trigger_use
 	function use_menu.cancel()
