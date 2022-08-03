@@ -3,33 +3,34 @@ version 34
 __lua__
 -- init
 
-enemy_types={
-	{ -- green alien
-		hp=5,
-		spr=21,
-		ani=split"21,22,23,24"
-	},
-	{ -- red flame guy
-		hp=5,
-		spr=148,
-		ani=split"148,149"
-	},
-	{ -- spinning ship
-		hp=5,
-		spr=184,
-		ani=split"184,185,186,187"
-	},
-	{ -- boss
-		hp=5,
-		spr=208,
-		ani=split"208,210",
-		spr_width=2
-	}
-}
-
 function _init()
  t=0
  blinkt=1
+ btn_lockout=0
+ 
+ enemy_types={
+		make_obj({ -- green alien
+			hp=5,
+			spr=21,
+			ani=split"21,22,23,24"
+		}),
+		make_obj({ -- red flame guy
+			hp=5,
+			spr=148,
+			ani=split"148,149"
+		}),
+		make_obj({ -- spinning ship
+			hp=5,
+			spr=184,
+			ani=split"184,185,186,187"
+		}),
+		make_obj({ -- boss
+			hp=5,
+			spr=208,
+			ani=split"208,210",
+			spr_width=2
+		})
+	}
  
  modes={
  	start={update_start,draw_start},
@@ -68,7 +69,8 @@ function startgame()
 		y=64,
 		sx=0,
 		sy=0,
-		spr=2
+		spr=2,
+		spr_width=1
 	}
 	
 	lives=1
@@ -99,6 +101,7 @@ function startgame()
 end
 
 function mode(target_mode)
+	m=target_mode
 	upd,drw=unpack(
 		modes[target_mode]
 	)
@@ -262,6 +265,20 @@ function big_shwave(x,y)
 		target_r=25
 	})
 end
+
+function make_obj(val)
+	return {
+		x=val.x,
+		y=val.y,
+		flash=0,
+		hp=val.hp or 5,
+		spr=val.spr,
+		spr_width=val.spr_width or 1,
+		ani=val.ani,
+		ani_frame=1,
+		col_width=8
+	}
+end
 -->8
 -- update
 
@@ -298,7 +315,8 @@ function update_game()
 			add(bullets,{
 				x=ship.x,
 				y=ship.y-4,
-				spr=16
+				spr=16,
+				spr_width=1
 			})
 			sfx(0)
 			muzzle=6
@@ -324,10 +342,6 @@ function update_game()
 					sfx(1)
 					del(enemies,e)
 					explode(e.x+4,e.y+4)
-					
-					if #enemies==0 then
-						next_wave()
-					end
 				end
 			end
 		end)
@@ -352,14 +366,9 @@ function update_game()
 		e.spr=e.ani[
 			flr(e.ani_frame)
 		]
---		e.spr+=0.4
---		if e.spr>=25 then
---			e.spr=21
---		end
 		
 		if e.y>128 then
 			del(enemies,e)
-			spawn_enemy()
 		end
 		
 		if
@@ -395,7 +404,14 @@ function update_game()
 	
 	if lives<=0 then
 		mode("gameover")
+		btn_lockout=t+30
 		music(6)
+	end
+	
+	if
+		m=="game" and #enemies==0
+	then
+		next_wave()
 	end
 end
 
@@ -410,6 +426,8 @@ function update_wave_text()
 end
 
 function update_gameover()
+	if(t<btn_lockout) return
+	
 	if not btn(4)
 		and not btn(5)
 	then
@@ -537,13 +555,12 @@ function draw_sprites(list)
 end
 
 function draw_sprite(item)
-	local sprw=item.spr_width or 1
 	spr(
 		item.spr,
 		item.x,
 		item.y,
-		sprw,
-		sprw
+		item.spr_width,
+		item.spr_width
 	)
 end
 
@@ -616,6 +633,7 @@ function next_wave()
 	
 	if wave>4 then
 		music(4)
+		btn_lockout=t+30
 		return mode("win")
 	end
 	
