@@ -9,27 +9,28 @@ function _init()
  btn_lockout=0
  
  enemy_types={
-		make_obj({ -- green alien
+		make_obj { -- green alien
 			hp=5,
 			spr=21,
 			ani=split"21,22,23,24"
-		}),
-		make_obj({ -- red flame guy
+		},
+		make_obj { -- red flame guy
 			hp=5,
 			spr=148,
 			ani=split"148,149"
-		}),
-		make_obj({ -- spinning ship
+		},
+		make_obj { -- spinning ship
 			hp=5,
 			spr=184,
 			ani=split"184,185,186,187"
-		}),
-		make_obj({ -- boss
+		},
+		make_obj { -- boss
 			hp=5,
 			spr=208,
 			ani=split"208,210",
-			spr_width=2
-		})
+			spr_width=2,
+			col_width=16
+		}
 	}
  
  modes={
@@ -54,17 +55,17 @@ function _update()
 end
 
 function start_screen()
-	mode("start")
+	mode"start"
 	music(7)
 end
 
 function startgame()
 --	music(-1,1000)
 	t=0
-	wave=0
+	wave=3
 	next_wave()
 	
-	ship={
+	ship=make_obj {
 		x=64,
 		y=64,
 		sx=0,
@@ -149,10 +150,18 @@ function blink()
 end
 
 function has_collision(a,b)
-	if (a.y>b.y+7) return false
-	if (b.y>a.y+7) return false
-	if (a.x>b.x+7) return false
-	if (b.x>a.x+7) return false
+	if a.y>b.y+b.col_width-1 then
+		return false
+	end
+	if b.y>a.y+a.col_width-1 then
+		return false
+	end
+	if a.x>b.x+b.col_width-1 then
+		return false
+	end
+	if b.x>a.x+a.col_width-1 then
+		return false
+	end
 	
 	return true
 end
@@ -276,7 +285,7 @@ function make_obj(val)
 		spr_width=val.spr_width or 1,
 		ani=val.ani,
 		ani_frame=1,
-		col_width=8
+		col_width=val.col_width or 8
 	}
 end
 -->8
@@ -312,11 +321,10 @@ function update_game()
 	if (btn(⬇️)) ship.sy=2
 	if btn(🅾️) then
 		if bullet_timer<=0 then
-			add(bullets,{
+			add(bullets,make_obj {
 				x=ship.x,
 				y=ship.y-4,
-				spr=16,
-				spr_width=1
+				spr=16
 			})
 			sfx(0)
 			muzzle=6
@@ -403,7 +411,7 @@ function update_game()
 	update_stars()
 	
 	if lives<=0 then
-		mode("gameover")
+		mode"gameover"
 		btn_lockout=t+30
 		music(6)
 	end
@@ -420,7 +428,7 @@ function update_wave_text()
 	wavetime-=1
 	
 	if wavetime<=0 then
-		mode("game")
+		mode"game"
 		spawn_wave()
 	end
 end
@@ -612,15 +620,14 @@ function spawn_enemy(t)
 	local typ=t or 1
 	local stats=enemy_types[typ]
 
-	add(enemies,{
+	add(enemies,make_obj {
 		x=rnd(110)+10,
 		y=-(rnd(10)+10),
-		flash=0,
 		hp=stats.hp,
 		spr=stats.spr,
-		spr_width=stats.spr_width,
 		ani=stats.ani,
-		ani_frame=1
+		spr_width=stats.spr_width,
+		col_width=stats.col_width
 	})
 end
 
