@@ -12,51 +12,105 @@ function _init()
 		{ -- green alien
 			hp=3,
 			spr=21,
-			ani=split"21,22,23,24"
+			ani=split"21,22,23,24",
+			atk=function(self)
+				self.sy=1.7
+				self.sx=sin(t/45)
+				
+				if self.x<32 then
+					self.sx+=1-self.x/32
+				end
+				
+				if self.x>88 then
+					self.sx-=(self.x-88)/32
+				end
+			end
 		},
 		{ -- red flame guy
 			hp=5,
 			spr=148,
-			ani=split"148,149"
+			ani=split"148,149",
+			atk=function(self)
+				self.sy=2.5
+				self.sx=sin(t/20)
+				
+				if self.x<32 then
+					self.sx+=1-self.x/32
+				end
+				
+				if self.x>88 then
+					self.sx-=(self.x-88)/32
+				end
+			end
 		},
 		{ -- spinning ship
 			hp=5,
 			spr=184,
-			ani=split"184,185,186,187"
+			ani=split"184,185,186,187",
+			atk=function(self)
+				if self.sx==0 then
+					self.sy=1.8
+					
+					if ship.y<=self.y then
+						self.sy=0
+						self.sx=ship.x<self.x
+							and -1.8 or 1.8
+					end
+				end
+			end
 		},
-		{ -- boss
+		{ -- yellow ship
 			hp=5,
 			spr=208,
 			ani=split"208,210",
 			spr_width=2,
-			col_width=16
+			col_width=16,
+			atk=function(self)
+				self.sy=0.4
+				
+				if self.y<110 then
+					self.sy=1
+				end
+			end
 		}
 	}
 	
 	wave_patterns={
 		{
-			split"1,1,2,2,3,3,2,2,1,1",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"1,1,2,2,3,3,2,2,1,1"
+			freq=20,
+			pattern={
+				split"1,1,1,1,1,1,1,1,1,1",
+				split"1,1,1,1,1,1,1,1,1,1",
+				split"1,1,1,1,1,1,1,1,1,1",
+				split"1,1,1,1,1,1,1,1,1,1"
+			}
 		},
 		{
-			split"1,1,2,2,3,3,2,2,1,1",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"1,1,2,2,3,3,2,2,1,1"
+			freq=50,
+			pattern={
+				split"1,1,2,2,3,3,2,2,1,1",
+				split"0,1,2,1,0,0,1,2,1,0",
+				split"0,1,2,1,0,0,1,2,1,0",
+				split"1,1,2,2,3,3,2,2,1,1"
+			}
 		},
 		{
-			split"1,1,2,2,3,3,2,2,1,1",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"1,1,2,2,3,3,2,2,1,1"
+			freq=45,
+			pattern={
+				split"1,1,2,2,3,3,2,2,1,1",
+				split"3,1,2,1,3,3,1,2,1,3",
+				split"3,1,2,1,3,3,1,2,1,3",
+				split"1,1,2,2,3,3,2,2,1,1"
+			}
 		},
 		{
-			split"1,1,2,2,3,3,2,2,1,1",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"0,1,2,1,0,0,1,2,1,0",
-			split"1,1,2,2,3,3,2,2,1,1"
+			freq=40,
+			pattern={
+				split"1,1,2,2,3,3,2,2,1,1",
+				split"0,1,2,1,4,0,1,2,1,0",
+				split"0,1,2,1,0,0,1,2,1,0",
+				split"1,1,2,2,3,3,2,2,1,1"
+			}
 		}
 	}
  
@@ -89,7 +143,7 @@ end
 function startgame()
 --	music(-1,1000)
 	t=0
-	wave=0
+	wave=3
 	next_wave()
 	
 	ship=make_obj {
@@ -101,7 +155,7 @@ function startgame()
 		spr_width=1
 	}
 	
-	lives=1
+	lives=4
 	invul=0
 	muzzle=0
 	
@@ -142,12 +196,12 @@ function create_starfield()
 		pset(
 			s.x,
 			s.y,
-			get_star_col(s.spd)
+			get_star_color(s.spd)
 		)
 	end)
 end
 
-function get_star_col(spd)
+function get_star_color(spd)
 	if spd<1 then
 		return 1
 	end
@@ -305,7 +359,10 @@ end
 function make_obj(val)
 	local obj=val
 	
+	obj.sx=val.sx or 0
+	obj.sy=val.sy or 0
 	obj.flash=0
+	obj.shake=0
 	obj.hp=val.hp or 5
 	obj.spr_width=val.spr_width
 		or 1
@@ -390,8 +447,13 @@ function update_game()
 	invul=max(0,invul-1)
 	
 	foreach(enemies,function(e)
-		e:mission()
-		e.ani_frame+=0.4
+		if e.wait>0 then
+			e.wait-=1
+		else
+			e:mission()
+		end
+	
+		e.ani_frame+=e.ani_spd
 		
 		if 
 			flr(e.ani_frame) > #e.ani
@@ -403,7 +465,17 @@ function update_game()
 			flr(e.ani_frame)
 		]
 		
-		if e.y>128 then
+		if
+			(
+				e.mission!=fly_in
+				and e.mission!=waiting
+			)
+			and (
+				e.y>128
+				or e.x<-8
+				or e.x>128
+			)
+		then
 			del(enemies,e)
 		end
 		
@@ -599,10 +671,17 @@ function draw_sprites(list)
 end
 
 function draw_sprite(item)
+	local spr_x,spr_y=item.x,item.y
+	
+	if item.shake>0 then
+		item.shake-=1
+		spr_x+=abs(sin(t/2.5))
+	end
+
 	spr(
 		item.spr,
-		item.x,
-		item.y,
+		spr_x,
+		spr_y,
 		item.spr_width,
 		item.spr_width
 	)
@@ -662,12 +741,14 @@ function spawn_enemy(t,x,y,wait)
 		hp=stats.hp,
 		spr=stats.spr,
 		ani=stats.ani,
+		ani_spd=0.4,
 		spr_width=stats.spr_width,
 		col_width=stats.col_width,
 		pos_x=x,
 		pos_y=y,
-		mission=waiting,
-		wait=wait
+		mission=fly_in,
+		wait=wait,
+		atk=stats.atk
 	})
 end
 
@@ -691,7 +772,7 @@ end
 function spawn_wave()
 	sfx(28)
 	place_enemies(
-		wave_patterns[wave]
+		wave_patterns[wave].pattern
 	)
 end
 
@@ -712,14 +793,6 @@ end
 -->8
 -- behavior
 
-function waiting(en)
-	en.wait-=1
-	
-	if en.wait<=0 then
-		en.mission=fly_in
-	end
-end
-
 function fly_in(en)
 	en.x+=(en.pos_x-en.x)/6
 	en.y+=(en.pos_y-en.y)/7
@@ -733,19 +806,37 @@ function protec()
 end
 
 function attac(en)
-	en.y+=1.7
+	en:atk()
+	move(en)
 end
 
 function pick_enemy()
-	if m!="game" or t%40!=0 then
+	local freq=
+		wave_patterns[wave].freq
+	
+	if m!="game" or t%freq!=0 then
 		return
 	end
+	
+	local index=flr(rnd(
+		min(10,#enemies)
+	))
+	index=#enemies-index
 
-	local enemy=rnd(enemies)
-	if enemy.mission==protec then
-		enemy.pos_y=ship.y+4
+	local enemy=enemies[index]
+	if
+		enemy
+		and enemy.mission==protec
+	then
+		enemy.ani_spd*=2
+		enemy.wait=40
 		enemy.mission=attac
 	end
+end
+
+function move(obj)
+	obj.x+=obj.sx
+	obj.y+=obj.sy
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
