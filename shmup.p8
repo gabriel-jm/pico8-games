@@ -68,8 +68,18 @@ function _init()
 			atk=function(self)
 				self.sy=0.4
 				
-				if self.y<110 then
+				if self.y>110 then
 					self.sy=1
+					return
+				end
+				
+				if t%30==0 then
+					fire_spread(
+						self,
+						8,
+						2,
+						rnd()
+					)
 				end
 			end
 		}
@@ -106,10 +116,8 @@ function _init()
 		{
 			freq=40,
 			pattern={
-				split"1,1,2,2,3,3,2,2,1,1",
-				split"0,1,2,1,4,0,1,2,1,0",
-				split"0,1,2,1,0,0,1,2,1,0",
-				split"1,1,2,2,3,3,2,2,1,1"
+				split"0,0,0,0,4,0,0,0,0,0",
+				split"0,0,0,0,0,0,0,0,0,0"
 			}
 		}
 	}
@@ -143,7 +151,7 @@ end
 function startgame()
 --	music(-1,1000)
 	t=0
-	wave=0
+	wave=3
 	next_wave()
 	
 	ship=make_obj{
@@ -935,8 +943,8 @@ function fire(en,ang,spd)
 	en.flash=4
 	
 	add(en_bullets,make_obj{
-		x=en.x+3,
-		y=en.y+6,
+		x=en.x+(en.col_width/2)-1,
+		y=en.y+en.col_width-2,
 		sx=sin(ang)*spd,
 		sy=cos(ang)*spd,
 		spr=32,
@@ -946,6 +954,15 @@ function fire(en,ang,spd)
 		bullet_mode=true
 	})
 	sfx(29)
+end
+
+function fire_spread(
+	en,num,spd,base
+)
+	base=base or 0
+	for i=1,num do
+		fire(en,1/num*i+base,spd)
+	end
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
