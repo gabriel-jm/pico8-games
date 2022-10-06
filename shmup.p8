@@ -41,6 +41,9 @@ function _init()
 				if self.x>88 then
 					self.sx-=(self.x-88)/32
 				end
+			end,
+			shoot=function(self)
+				aim_fire(self,2)
 			end
 		},
 		{ -- spinning ship
@@ -81,6 +84,14 @@ function _init()
 						rnd()
 					)
 				end
+			end,
+			shoot=function(self)
+				fire_spread(
+					self,
+					8,
+					2,
+					rnd()
+				)
 			end
 		}
 	}
@@ -151,7 +162,7 @@ end
 function startgame()
 --	music(-1,1000)
 	t=0
-	wave=3
+	wave=1
 	next_wave()
 	
 	ship=make_obj{
@@ -811,7 +822,8 @@ function spawn_enemy(t,x,y,wait)
 		pos_y=y,
 		mission=fly_in,
 		wait=wait,
-		atk=stats.atk
+		atk=stats.atk,
+		shoot=stats.shoot or shot
 	})
 end
 
@@ -918,13 +930,17 @@ function pick_shooter()
 		enemy
 		and enemy.mission==protec
 	then
-		fire(enemy,1,2)
+		enemy:shoot()
 	end
 end
 
 function move(obj)
 	obj.x+=obj.sx
 	obj.y+=obj.sy
+end
+
+function shot(en)
+	fire(en,1,2)
 end
 
 function kill_enemy(en)
@@ -942,18 +958,21 @@ end
 function fire(en,ang,spd)
 	en.flash=4
 	
-	add(en_bullets,make_obj{
-		x=en.x+(en.col_width/2)-1,
-		y=en.y+en.col_width-2,
-		sx=sin(ang)*spd,
-		sy=cos(ang)*spd,
-		spr=32,
-		ani={32,33,34,33},
-		ani_spd=0.5,
-		col_width=2,
-		bullet_mode=true
-	})
 	sfx(29)
+	return add(
+		en_bullets,
+		make_obj{
+			x=en.x+(en.col_width/2)-1,
+			y=en.y+en.col_width-2,
+			sx=sin(ang)*spd,
+			sy=cos(ang)*spd,
+			spr=32,
+			ani={32,33,34,33},
+			ani_spd=0.5,
+			col_width=2,
+			bullet_mode=true
+		}
+	)
 end
 
 function fire_spread(
@@ -963,6 +982,18 @@ function fire_spread(
 	for i=1,num do
 		fire(en,1/num*i+base,spd)
 	end
+end
+
+function aim_fire(en,spd)
+	local bult=fire(en,ang,spd)
+	
+	local ang=atan2(
+		(ship.y+4)-bult.y,
+		(ship.x+4)-bult.x
+	)
+	
+	bult.sx=sin(ang)*spd
+	bult.sy=cos(ang)*spd
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
