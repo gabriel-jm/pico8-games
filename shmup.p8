@@ -28,7 +28,7 @@ function _init()
 			end
 		},
 		{ -- red flame guy
-			hp=5,
+			hp=2,
 			spr=148,
 			ani=split"148,149",
 			atk=function(self)
@@ -48,7 +48,7 @@ function _init()
 			end
 		},
 		{ -- spinning ship
-			hp=5,
+			hp=4,
 			spr=184,
 			ani=split"184,185,186,187",
 			atk=function(self)
@@ -64,7 +64,7 @@ function _init()
 			end
 		},
 		{ -- yellow ship
-			hp=5,
+			hp=20,
 			spr=208,
 			ani=split"208,210",
 			spr_width=2,
@@ -110,10 +110,10 @@ function _init()
 		{
 			freq=50,
 			pattern={
-				split"1,1,2,2,3,3,2,2,1,1",
-				split"0,1,2,1,0,0,1,2,1,0",
-				split"0,1,2,1,0,0,1,2,1,0",
-				split"1,1,2,2,3,3,2,2,1,1"
+				split"1,1,2,2,2,2,2,2,1,1",
+				split"1,1,2,2,2,2,2,2,1,1",
+				split"1,1,2,2,1,1,2,2,1,1",
+				split"1,1,1,1,1,1,1,1,1,1"
 			}
 		},
 		{
