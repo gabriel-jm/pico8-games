@@ -7,6 +7,7 @@ function _init()
  t=0
  blinkt=1
  btn_lockout=0
+ shake=0
  
  enemy_types={
 		{ -- green alien
@@ -145,7 +146,9 @@ function _init()
 end
 
 function _draw()
+	shake_screen()
 	drw()
+	camera()
 end
 
 function _update()
@@ -409,6 +412,17 @@ function animate(obj)
 		flr(obj.ani_frame)
 	]
 end
+
+function shake_screen()
+	local x=rnd(shake)-(shake/2)
+	local y=rnd(shake)-(shake/2)
+	
+	camera(x,y)
+	
+	shake=shake<1
+		and 0
+		or shake*0.9
+end
 -->8
 -- update
 
@@ -458,9 +472,7 @@ function update_game()
 	bullet_timer-=1
 	
 	foreach(bullets,function(b)
-		-- 2274
 		move(b)
---		b.y-=4
 		
 		foreach(enemies,function(e)
 			if has_collision(e,b) then
@@ -516,17 +528,6 @@ function update_game()
 			e:mission()
 		end
 	
---		e.ani_frame+=e.ani_spd
---		
---		if 
---			flr(e.ani_frame) > #e.ani
---		then
---			e.ani_frame=1
---		end
---		
---		e.spr=e.ani[
---			flr(e.ani_frame)
---		]
 		animate(e)
 		
 		if
@@ -580,6 +581,7 @@ function update_game()
 		mode"gameover"
 		btn_lockout=t+30
 		music(6)
+		shake=8
 	end
 	
 	pick_enemy()
