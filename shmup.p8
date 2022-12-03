@@ -177,10 +177,11 @@ function startgame()
 		spr_width=1
 	}
 	
-	lives=4
+	lives=3
+	score=0
 	invul=0
 	muzzle=0
-	cherry=0
+	cherry=8
 	
 	flame_spr=5
 	
@@ -208,6 +209,8 @@ function startgame()
 	particles={}
 	
 	pick_ups={}
+	
+	floaters={}
 end
 
 function mode(target_mode)
@@ -426,6 +429,19 @@ function shake_screen()
 		and 0
 		or shake*0.9
 end
+
+function pop_floater(txt,x,y)
+	add(floaters,{
+		x=x,
+		y=y,
+		txt=txt,
+		age=0
+	})
+end
+
+function center_print(txt,x,y,c)
+	print(txt,x-#txt*2,y,c)
+end
 -->8
 -- update
 
@@ -488,6 +504,7 @@ function update_game()
 				
 				if e.hp<=0 then
 					kill_enemy(e)
+					score+=1
 				end
 			end
 		end)
@@ -532,13 +549,7 @@ function update_game()
 		
 		if has_collision(p,ship) then
 			del(pick_ups,p)
-			cherry+=1
-			sfx(30)
-			small_shwave(
-				p.x+4,
-				p.y+4,
-				14
-			)
+			pick_up(p)
 		end
 	end)
 	
@@ -578,6 +589,10 @@ function update_game()
 			invul=60
 			sfx(1)
 		end
+	end)
+	
+	foreach(floaters,function(f)
+		
 	end)
 	
 	invul=max(0,invul-1)
@@ -647,15 +662,15 @@ update_win=update_gameover
 
 function draw_start()
 	cls(1)
-	print(
+	center_print(
 		"shoot them up!",
-		36,
+		64,
 		40,
 		7
 	)
-	print(
+	center_print(
 		"press any key to start",
-		20,
+		64,
 		80,
 		blink()
 	)
@@ -757,6 +772,19 @@ function draw_game()
 	
 	foreach(en_bullets,draw_sprite)
 	
+	foreach(floaters,function(f)
+		if t%4!=0 then
+			center_print(f.txt,f.x,f.y,7)
+		end
+		
+		f.y-=0.5
+		f.age+=1
+		
+		if f.age>60 then
+			del(floaters,f)
+		end
+	end)
+	
 	for i=1,4 do
 		spr(
 			lives<i and 14 or 13,
@@ -765,8 +793,10 @@ function draw_game()
 		)
 	end
 	
-	spr(48,110,0)
-	print(cherry,119,2,14)
+	print("score:"..score,46,2,1)
+	
+	spr(48,110,1)
+	print(cherry,120,2,14)
 end
 
 function draw_sprites(list)
@@ -799,15 +829,15 @@ end
 
 function draw_gameover()
 	draw_game()
-	print(
+	center_print(
 		"game over!",
-		47,
+		64,
 		40,
 		8
 	)
-	print(
+	center_print(
 		"press any key to restart",
-		20,
+		64,
 		80,
 		blink()
 	)
@@ -815,9 +845,9 @@ end
 
 function draw_wave_text()
 	draw_game()
-	print(
+	center_print(
 		"wave "..wave,
-		56,
+		64,
 		40,
 		blink()
 	)
@@ -825,15 +855,15 @@ end
 
 function draw_win()
 	draw_game()
-	print(
+	center_print(
 		"congratulations",
-		35,
+		64,
 		40,
 		12
 	)
-	print(
+	center_print(
 		"press any key to restart",
-		20,
+		64,
 		80,
 		blink()
 	)
@@ -1001,12 +1031,16 @@ function kill_enemy(en)
 	del(enemies,en)
 	explode(en.x+4,en.y+4)
 	
-	if rnd()<0.08 then
-		drop_pick_up(en.x,en.y)
-	end
+	local drop_chance=0.09
 	
 	if en.mission==attac then
 		if (rnd()<0.5) pick_attac()
+		
+		drop_chance=0.18
+	end
+	
+	if rnd()<drop_chance then
+		drop_pick_up(en.x,en.y)
 	end
 end
 
@@ -1014,9 +1048,36 @@ function drop_pick_up(x,y)
 	add(pick_ups,make_obj{
 		x=x,
 		y=y,
-		sy=0.5,
+		sy=0.75,
 		spr=48
 	})
+end
+
+function pick_up(p)
+	cherry+=1
+	small_shwave(
+		p.x+4,
+		p.y+4,
+		14
+	)
+	
+	if cherry<10 then
+		sfx(30)
+		return
+	end
+	
+	cherry=0
+	if lives<4 then
+		lives+=1
+		sfx(31)
+		pop_floater(
+			"1up!",
+			p.x+4,
+			p.y+4
+		)
+	else
+		score+=10
+	end
 end
 -->8
 -- bullets
@@ -1212,7 +1273,8 @@ __sfx__
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 5803000033552305522e5522b5522755227542245421f5421d5421b54218542165421654213532115320f5320f5320c5320c5320a5320a5220752207522055220352203522005220851206512045120251200512
 980200001235200302123520533205332053320032204302063020430200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00030000095660a5760c5460e5460f5560f5561255615556175361b5461d5461e5661f57600500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500
+00040000095660a5760c5460e5460f5560f5561255615556175361b5561d5561e5661f57600500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500
+000800001b55519555115551655515545295352c5652e575305752b50535505305052c505135051b5052250524505005050050500505005050050500505005050050500505005050050500505005050050500505
 __music__
 04 04050644
 00 07084749
