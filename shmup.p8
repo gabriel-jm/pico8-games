@@ -355,6 +355,7 @@ blue_age_colors={
 	{5,6},
 	{0,7}
 }
+
 function age_particle(
 	age,
 	is_blue
@@ -395,25 +396,23 @@ function big_shwave(x,y)
 end
 
 function make_obj(val)
-	local obj=val
-	
-	obj.sx=val.sx or 0
-	obj.sy=val.sy or 0
-	obj.flash=0
-	obj.shake=0
-	obj.hp=val.hp or 5
-	obj.spr_width=val.spr_width
+	val.sx=val.sx or 0
+	val.sy=val.sy or 0
+	val.flash=0
+	val.shake=0
+	val.hp=val.hp or 5
+	val.spr_width=val.spr_width
 		or 1
-	obj.spr_height=val.spr_height
-		or obj.spr_width
-	obj.ani_frame=1
-	obj.ani_spd=0.4
-	obj.col_width=val.col_width
+	val.spr_height=val.spr_height
+		or val.spr_width
+	val.ani_frame=1
+	val.ani_spd=0.4
+	val.col_width=val.col_width
 		or 8
-	obj.col_height=val.col_height
-		or obj.col_width
+	val.col_height=val.col_height
+		or val.col_width
 	
-	return obj
+	return val
 end
 
 function animate(obj)
@@ -920,27 +919,18 @@ end
 function spawn_enemy(t,x,y,wait)
 	local typ=t or 1
 	local stats=enemy_types[typ]
-
-	add(enemies,make_obj {
-		x=stats.x or x*1.2-16,
-		y=stats.y or y-62,
-		hp=stats.hp,
-		spr=stats.spr,
-		ani=stats.ani,
-		spr_width=stats.spr_width,
-		spr_height=stats.spr_height,
-		col_width=stats.col_width,
-		col_height=stats.col_height,
-		pos_x=stats.pos_x or x,
-		pos_y=stats.pos_y or y,
-		mission=stats.fly_in or fly_in,
-		wait=wait,
-		atk=stats.atk,
-		shoot=stats.shoot or shot,
-		hit_flash=stats.hit_flash,
-		fire_flash=stats.fire_flash,
-		flashing=stats.flashing
-	})
+	
+	stats.x=stats.x or x*1.2-16
+	stats.y=stats.y or y-62
+	stats.pos_x=stats.pos_x or x
+	stats.pos_y=stats.pos_y or y
+	stats.mission=stats.fly_in
+		or fly_in
+	stats.wait=wait
+	stats.shoot=stats.shoot
+		or shot
+	
+	add(enemies,make_obj(stats))
 end
 
 function place_enemies(
@@ -1118,7 +1108,7 @@ end
 function fire(en,ang,spd)
 	en.flash=en.fire_flash or 4
 	
-	sfx(29)
+	sfx(en.fire_sfx or 29)
 	return add(
 		en_bullets,
 		make_obj{
@@ -1195,7 +1185,8 @@ boss={
 	col_width=32,
 	col_height=24,
 	hit_flash=6,
-	fire_flash=0
+	fire_flash=0,
+	fire_sfx=34
 }
 
 function boss.fly_in(en)
@@ -1210,6 +1201,7 @@ function boss.fly_in(en)
 		en.y=en.pos_y
 		en.x=en.pos_x
 		en.mission=boss.phase_1
+		en.phase_began_at=t
 	end
 end
 
@@ -1236,9 +1228,65 @@ function boss.flashing(self)
 end
 
 function boss.phase_1(self)
-	if t%15==0 then
+	local speed=2
+	
+	if
+		self.sx==0 or self.x>=93
+	then
+		self.sx-=speed
+	end
+	
+	if self.x<=3 then
+		self.sx=speed
+	end
+	
+	if t%3==0 and t%30>3 then
 		fire(self,0,2)
 	end
+	
+	if
+		self.phase_began_at+8*30<t
+	then
+		self.mission=boss.phase_2
+		self.phase_began_at=t
+	end
+
+	move(self)
+end
+
+function boss.phase_2(self)
+	self.sx=0
+
+	if
+		self.phase_began_at+8*30<t
+	then
+		self.mission=boss.phase_3
+		self.phase_began_at=t
+	end
+	
+	move(self)
+end
+
+function boss.phase_3(self)
+	if
+		self.phase_began_at+8*30<t
+	then
+		self.mission=boss.phase_4
+		self.phase_began_at=t
+	end
+	
+	move(self)
+end
+
+function boss.phase_4(self)
+	if
+		self.phase_began_at+8*30<t
+	then
+		self.mission=boss.phase_1
+		self.phase_began_at=t
+	end
+	
+	move(self)
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1395,6 +1443,7 @@ __sfx__
 000800001b55519555115551655515545295352c5652e575305752b50535505305052c505135051b5052250524505005050050500505005050050500505005050050500505005050050500505005050050500505
 000400000446003440034400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 02020000376673766737667376673866738667386673c6573c6473c6473c6473b64739647386373663733637316372e6372b6372663723637206371c62717627166271262711617106170f6170c6170b61708617
+000100000913007140071300d150111400d1300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 04 04050644
 00 07084749
