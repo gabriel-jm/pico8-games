@@ -1254,17 +1254,64 @@ function boss.phase_1(self)
 	move(self)
 end
 
+local phase_state
 function boss.phase_2(self)
-	self.sx=0
-
-	if
-		self.phase_began_at+8*30<t
-	then
-		self.mission=boss.phase_3
-		self.phase_began_at=t
+	if not phase_state then
+		phase_state=phase_2_mov1
+	end
+	
+	local next_phase=phase_state(
+		self
+	)
+	
+	if next_phase then
+		phase_state=next_phase
 	end
 	
 	move(self)
+end
+
+function phase_2_mov1(self)
+	local spd=2
+	
+	self.sx=-spd
+	
+	if self.x<=3 then
+		return phase_2_mov2
+	end
+end
+
+function phase_2_mov2(self)
+	local spd=2
+	
+	self.sx=0
+	self.sy=spd
+	
+	if self.y>=96 then
+		return phase_2_mov3
+	end
+end
+
+function phase_2_mov3(self)
+	local spd=2
+	
+	self.sy=0
+	self.sx=spd
+	
+	if self.x>=93 then
+		return phase_2_mov4
+	end
+end
+
+function phase_2_mov4(self)
+	local spd=2
+	
+	self.sx=0
+	self.sy=-spd
+	
+	if self.y<=25 then
+		self.mission=boss.phase_3
+	end
 end
 
 function boss.phase_3(self)
@@ -1275,7 +1322,7 @@ function boss.phase_3(self)
 		self.phase_began_at=t
 	end
 	
-	move(self)
+--	move(self)
 end
 
 function boss.phase_4(self)
