@@ -269,6 +269,10 @@ function blink()
 end
 
 function has_collision(a,b)
+	if a.ghost or b.ghost then
+		return false
+	end
+
 	if a.y>b.y+b.col_height-1 then
 		return false
 	end
@@ -319,6 +323,45 @@ function explode(x,y,is_blue)
 			age=rnd(2),
 			size=1+rnd(4),
 			max_age=10+rnd(10),
+			spark=true
+		})
+	end
+	
+	big_shwave(x,y)
+end
+
+function big_explode(x,y)
+	add(particles,{
+		x=x,
+		y=y,
+		sx=0,
+		sy=0,
+		age=0,
+		size=30,
+		max_age=0
+	})
+
+	for i=1,60 do
+		add(particles,{
+			x=x,
+			y=y,
+			sx=(rnd()-0.75)*12,
+			sy=(rnd()-0.75)*12,
+			age=rnd(2),
+			size=1+rnd(8),
+			max_age=20+rnd(20)
+		})
+	end
+	
+	for i=1,100 do
+		add(particles,{
+			x=x,
+			y=y,
+			sx=(rnd()-0.5)*30,
+			sy=(rnd()-0.5)*30,
+			age=rnd(2),
+			size=1+rnd(4),
+			max_age=20+rnd(20),
 			spark=true
 		})
 	end
@@ -989,7 +1032,7 @@ function protec()
 end
 
 function attac(en)
-	en:atk()
+	if(en.atk) en:atk()
 	move(en)
 end
 
@@ -1050,6 +1093,12 @@ function shot(en)
 end
 
 function kill_enemy(en)
+	if en.boss then
+		en.mission=boss.phase_5
+		en.phase_began_at=t
+		return
+	end
+
 	sfx(1)
 	del(enemies,en)
 	explode(en.x+4,en.y+4)
@@ -1177,7 +1226,7 @@ boss={
 	pos_x=48,
 	pos_y=25,
 	
-	hp=200,
+	hp=5, //200
 	spr=68,
 	ani=split"68,72,76,72",
 	spr_width=4,
@@ -1186,8 +1235,30 @@ boss={
 	col_height=24,
 	hit_flash=6,
 	fire_flash=0,
-	fire_sfx=34
+	fire_sfx=34,
+	boss=true
 }
+
+function init_boss()
+	boss={
+		x=48,
+		y=-24,
+		pos_x=48,
+		pos_y=25,
+		
+		hp=5, //200
+		spr=68,
+		ani=split"68,72,76,72",
+		spr_width=4,
+		spr_height=3,
+		col_width=32,
+		col_height=24,
+		hit_flash=6,
+		fire_flash=0,
+		fire_sfx=34,
+		boss=true
+	}
+end
 
 function boss.fly_in(en)
 	local dx=(en.pos_x-en.x)/6
@@ -1203,10 +1274,6 @@ function boss.fly_in(en)
 		en.mission=boss.phase_1
 		en.phase_began_at=t
 	end
-end
-
-function boss.atk()
-	
 end
 
 function boss.shoot(self)
@@ -1316,6 +1383,7 @@ function phase_2_mov4(self)
 	
 	if self.y<=25 then
 		phase_state=nil
+		self.phase_began_at=t
 		self.mission=boss.phase_3
 	end
 end
@@ -1361,24 +1429,111 @@ function boss.phase_4(self)
 	if next_phase then
 		phase_state=next_phase
 	end
-
-	if
-		self.phase_began_at+8*30<t
-	then
-		self.mission=boss.phase_1
-		self.phase_began_at=t
-	end
 	
 	move(self)
 end
 
 function phase_4_mov1(self)
-	local spd=2
+	local spd=1.5
 	
+	self.sx=spd
+	
+	if self.x>=91 then
+		return phase_4_mov2
+	end
+	
+	phase_4_shot(self,0)
+end
+
+function phase_4_mov2(self)
+	local spd=1.5
+	
+	self.sx=0
+	self.sy=spd
+	
+	if self.y>=98 then
+		return phase_4_mov3
+	end
+	
+	phase_4_shot(self,0.25)
+end
+
+function phase_4_mov3(self)
+	local spd=1.5
+	
+	self.sy=0
 	self.sx=-spd
 	
 	if self.x<=4 then
-		return phase_2_mov2
+		return phase_4_mov4
+	end
+	
+	phase_4_shot(self,0.5)
+end
+
+function phase_4_mov4(self)
+	local spd=1.5
+	
+	self.sx=0
+	self.sy=-spd
+	
+	if self.y<=25 then
+		self.sy=0
+		phase_state=nil
+		self.phase_began_at=t
+		self.mission=boss.phase_1
+	end
+	
+	phase_4_shot(self,0.75)
+end
+
+function phase_4_shot(
+	self,ang
+)
+	if t%10==0 then
+		fire(self,ang,2)
+	end
+end
+
+function boss.phase_5(self)
+	self.ghost=true
+	en_bullets={}
+	
+	self.shake=10
+	self.flash=10
+	
+	if t%8==0 then
+		explode(
+			self.x+rnd(32),
+			self.y+rnd(24)
+		)
+		sfx(2)
+		shake=2
+	end
+	
+	if
+		self.phase_began_at+2*30<t
+	then
+		if t%5==0 then
+			explode(
+				self.x+rnd(32),
+				self.y+rnd(24)
+			)
+			sfx(2)
+			shake=2
+		end
+	end
+	
+	if
+		self.phase_began_at+4*30<t
+	then
+		big_explode(
+			self.x+16,
+			self.y+12
+		)
+		shake=15
+		enemies={}
+		init_boss()
 	end
 end
 __gfx__
