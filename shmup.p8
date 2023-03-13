@@ -1113,7 +1113,7 @@ function fire(en,ang,spd)
 		en_bullets,
 		make_obj{
 			x=en.x+(en.col_width/2)-1,
-			y=en.y+en.col_width-2,
+			y=en.y+en.col_width-6,
 			sx=sin(ang)*spd,
 			sy=cos(ang)*spd,
 			spr=32,
@@ -1255,6 +1255,7 @@ function boss.phase_1(self)
 end
 
 local phase_state
+
 function boss.phase_2(self)
 	if not phase_state then
 		phase_state=phase_2_mov1
@@ -1268,6 +1269,10 @@ function boss.phase_2(self)
 		phase_state=next_phase
 	end
 	
+	if t%15==0 then
+		aim_fire(self,3)
+	end
+	
 	move(self)
 end
 
@@ -1276,7 +1281,7 @@ function phase_2_mov1(self)
 	
 	self.sx=-spd
 	
-	if self.x<=3 then
+	if self.x<=4 then
 		return phase_2_mov2
 	end
 end
@@ -1287,7 +1292,7 @@ function phase_2_mov2(self)
 	self.sx=0
 	self.sy=spd
 	
-	if self.y>=96 then
+	if self.y>=98 then
 		return phase_2_mov3
 	end
 end
@@ -1310,22 +1315,53 @@ function phase_2_mov4(self)
 	self.sy=-spd
 	
 	if self.y<=25 then
+		phase_state=nil
 		self.mission=boss.phase_3
 	end
 end
 
 function boss.phase_3(self)
+	local speed=0.8
+	
+	self.sy=0
+	
 	if
-		self.phase_began_at+8*30<t
+		self.sx==0 or self.x>=93
+	then
+		self.sx=-speed
+	end
+	
+	if self.x<=3 then
+		self.sx=speed
+	end
+	
+	if t%10==0 then
+		fire_spread(self,8,2,time())
+	end
+
+	if
+		self.phase_began_at+8*60<t
 	then
 		self.mission=boss.phase_4
 		self.phase_began_at=t
 	end
 	
---	move(self)
+	move(self)
 end
 
 function boss.phase_4(self)
+	if not phase_state then
+		phase_state=phase_4_mov1
+	end
+	
+	local next_phase=phase_state(
+		self
+	)
+	
+	if next_phase then
+		phase_state=next_phase
+	end
+
 	if
 		self.phase_began_at+8*30<t
 	then
@@ -1334,6 +1370,16 @@ function boss.phase_4(self)
 	end
 	
 	move(self)
+end
+
+function phase_4_mov1(self)
+	local spd=2
+	
+	self.sx=-spd
+	
+	if self.x<=4 then
+		return phase_2_mov2
+	end
 end
 __gfx__
 00000000000220000002200000022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
