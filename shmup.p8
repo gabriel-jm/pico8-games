@@ -348,7 +348,7 @@ function big_explode(x,y)
 			sx=(rnd()-0.75)*12,
 			sy=(rnd()-0.75)*12,
 			age=rnd(2),
-			size=1+rnd(8),
+			size=1+rnd(4),
 			max_age=20+rnd(20)
 		})
 	end
@@ -1226,7 +1226,7 @@ boss={
 	pos_x=48,
 	pos_y=25,
 	
-	hp=5, //200
+	hp=150,
 	spr=68,
 	ani=split"68,72,76,72",
 	spr_width=4,
@@ -1236,28 +1236,18 @@ boss={
 	hit_flash=6,
 	fire_flash=0,
 	fire_sfx=34,
-	boss=true
+	boss=true,
+	ghost=true
 }
 
-function init_boss()
-	boss={
-		x=48,
-		y=-24,
-		pos_x=48,
-		pos_y=25,
+function reset_boss()
+	boss.x=48
+	boss.y=-24
+	boss.pos_x=48
+	boss.pos_y=25
 		
-		hp=5, //200
-		spr=68,
-		ani=split"68,72,76,72",
-		spr_width=4,
-		spr_height=3,
-		col_width=32,
-		col_height=24,
-		hit_flash=6,
-		fire_flash=0,
-		fire_sfx=34,
-		boss=true
-	}
+	boss.hp=150
+	boss.ghost=true
 end
 
 function boss.fly_in(en)
@@ -1273,6 +1263,7 @@ function boss.fly_in(en)
 		en.x=en.pos_x
 		en.mission=boss.phase_1
 		en.phase_began_at=t
+		en.ghost=false
 	end
 end
 
@@ -1408,7 +1399,7 @@ function boss.phase_3(self)
 	end
 
 	if
-		self.phase_began_at+8*60<t
+		self.phase_began_at+8*40<t
 	then
 		self.mission=boss.phase_4
 		self.phase_began_at=t
@@ -1533,7 +1524,9 @@ function boss.phase_5(self)
 		)
 		shake=15
 		enemies={}
-		init_boss()
+		sfx(35)
+		reset_boss()
+		self.mission=boss.fly_in
 	end
 end
 __gfx__
@@ -1692,6 +1685,7 @@ __sfx__
 000400000446003440034400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 02020000376673766737667376673866738667386673c6573c6473c6473c6473b64739647386373663733637316372e6372b6372663723637206371c62717627166271262711617106170f6170c6170b61708617
 000100000913007140071300d150111400d1300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+020200003e6701e6203c670126203c67013670396501f670346503265032650306502b65029650276502465024640226401f6401f6401b6401b6401863016630116300f6300c6300a63007630036300362000620
 __music__
 04 04050644
 00 07084749
