@@ -172,7 +172,7 @@ end
 function startgame()
 --	music(-1,1000)
 	t=0
-	wave=4
+	wave=0
 	next_wave()
 	
 	ship=make_obj{
@@ -184,11 +184,11 @@ function startgame()
 		spr_width=1
 	}
 	
-	lives=3
+	lives=4
 	score=0
 	invul=0
 	muzzle=0
-	cherry=8
+	cherry=0
 	
 	flame_spr=5
 	
@@ -208,6 +208,8 @@ function startgame()
 	
 	enemies={}
 	en_bullets={}
+	
+	reset_boss()
 	
 	explosions={}
 	
@@ -1291,7 +1293,7 @@ function boss.phase_1(self)
 	if
 		self.sx==0 or self.x>=93
 	then
-		self.sx-=speed
+		self.sx=-speed
 	end
 	
 	if self.x<=3 then
@@ -1523,7 +1525,7 @@ function boss.phase_5(self)
 			self.y+12
 		)
 		shake=15
-		enemies={}
+		del(enemies,self)
 		sfx(35)
 		reset_boss()
 		self.mission=boss.fly_in
